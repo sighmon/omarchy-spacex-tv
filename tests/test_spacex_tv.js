@@ -12,6 +12,21 @@ function loadFixture(name) {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", name), "utf8"))
 }
 
+test("remote JSON collectors have byte ceilings and feed titles render as plain text", () => {
+  const panel = fs.readFileSync(path.join(root, "Panel.qml"), "utf8")
+
+  assert.match(panel, /function boundedJsonCommand\(url, maxSeconds, maxBytes\)/)
+  assert.match(panel, /--max-filesize \\"\$2\\"/)
+  assert.match(panel, /head -c \\"\$3\\"/)
+  assert.equal(
+    (panel.match(/command: root\.boundedJsonCommand\(/g) || []).length,
+    3,
+    "every remote JSON process must use the bounded command"
+  )
+  assert.match(panel, /text: root\.nextLaunch \? root\.nextLaunch\.title[\s\S]*?textFormat: Text\.PlainText/)
+  assert.match(panel, /text: cardItem\.card && cardItem\.card\.title[\s\S]*?textFormat: Text\.PlainText/)
+})
+
 test("cardsFromCache yields X broadcasts and Starship films with titles and stream URLs", () => {
   const cache = loadFixture("x-cache.json")
   assert.ok(cache.processed_cards)

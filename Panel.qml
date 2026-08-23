@@ -29,7 +29,26 @@ Panel {
   readonly property string cacheUrl: "https://www.sighmon.com/spacex-tv/x-cache.json"
   readonly property string tilesUrl: "https://content.spacex.com/api/spacex-website/launches-page-tiles/upcoming"
   readonly property string timingsUrl: "https://sxcontent9668.azureedge.us/cms-assets/future_missions.json"
+  readonly property int cacheResponseLimit: 8 * 1024 * 1024
+  readonly property int launchResponseLimit: 1024 * 1024
   readonly property var barIdentity: hostWidget || root
+
+  function boundedJsonCommand(url, maxSeconds, maxBytes) {
+    // head is the hard backstop for curl versions older than 8.4, where
+    // --max-filesize does not cap responses without a Content-Length header.
+    // Passing URL and limits as positional arguments keeps them out of shell syntax.
+    return [
+      "/bin/sh", "-c",
+      "curl -fsSL --compressed --max-time \"$1\" --max-filesize \"$2\" "
+        + "-A 'Mozilla/5.0 Omarchy SpaceXTV/1.0' -H 'Accept: application/json' "
+        + "-- \"$4\" | head -c \"$3\"",
+      "spacex-tv-fetch",
+      String(maxSeconds),
+      String(maxBytes),
+      String(maxBytes + 1),
+      url
+    ]
+  }
 
   function open() {
     root.controller.show()
@@ -190,12 +209,17 @@ Panel {
 
   Process {
     id: cacheProc
-    command: ["curl", "-fsSL", "--compressed", "--max-time", "20", "-A", "Mozilla/5.0 Omarchy SpaceXTV/1.0", root.cacheUrl]
+    command: root.boundedJsonCommand(root.cacheUrl, 20, root.cacheResponseLimit)
     stdout: StdioCollector {
       id: cacheStdout
       waitForEnd: true
       onStreamFinished: {
         var raw = String(text || "").replace(/^\s+|\s+$/g, "")
+        if (raw.length > root.cacheResponseLimit) {
+          console.log("[SpaceX TV] cache response exceeded size limit")
+          if (!root.cards.length) root.statusText = "Could not load SpaceX TV cache."
+          return
+        }
         if (!raw) {
           if (!root.cards.length) root.statusText = "Could not load SpaceX TV cache."
           return
@@ -216,7 +240,7 @@ Panel {
 
   Process {
     id: tilesProc
-    command: ["curl", "-fsSL", "--compressed", "--max-time", "15", "-A", "Mozilla/5.0 Omarchy SpaceXTV/1.0", "-H", "Accept: application/json", root.tilesUrl]
+    command: root.boundedJsonCommand(root.tilesUrl, 15, root.launchResponseLimit)
     stdout: StdioCollector {
       id: tilesStdout
       waitForEnd: true
@@ -227,7 +251,7 @@ Panel {
 
   Process {
     id: timingsProc
-    command: ["curl", "-fsSL", "--compressed", "--max-time", "15", "-A", "Mozilla/5.0 Omarchy SpaceXTV/1.0", "-H", "Accept: application/json", root.timingsUrl]
+    command: root.boundedJsonCommand(root.timingsUrl, 15, root.launchResponseLimit)
     stdout: StdioCollector {
       id: timingsStdout
       waitForEnd: true
@@ -284,6 +308,7 @@ Panel {
           Text {
             width: parent.width
             text: root.nextLaunch ? root.nextLaunch.title : "SpaceX TV"
+            textFormat: Text.PlainText
             color: root.barForeground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.subtitle
@@ -298,6 +323,7 @@ Panel {
               ? (Launch.formatCountdown(Launch.remainingTime(root.nextLaunch, Date.now()))
                  + (root.nextLaunch.vehicle ? " · " + root.nextLaunch.vehicle : ""))
               : ""
+            textFormat: Text.PlainText
             color: root.barForeground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.body
@@ -358,6 +384,7 @@ Panel {
             width: parent.width
             visible: root.statusText !== "" && !root.loadingCache
             text: root.statusText
+            textFormat: Text.PlainText
             color: root.barForeground
             opacity: 0.8
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
@@ -513,6 +540,7 @@ Panel {
                           anchors.bottom: parent.bottom
                           anchors.margins: Style.space(6)
                           text: cardItem.card && cardItem.card.title ? cardItem.card.title : ""
+                          textFormat: Text.PlainText
                           color: root.barForeground
                           font.family: root.bar ? root.bar.fontFamily : Style.font.family
                           font.pixelSize: Style.font.caption
