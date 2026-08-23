@@ -2,7 +2,7 @@
 
 An Omarchy bar widget for watching SpaceX broadcasts and Starship films.
 
-<img src="omarchy-spacex-tv.png" width="100%" />
+<img src="preview.png" width="100%" />
 
 It loads the hosted SpaceX TV cache (no X API Bearer Token required), shows poster cards for playable X broadcasts and Starship films, and displays a next-launch countdown from the same SpaceX feeds used by spacex.com/launches. Selecting a card plays its HLS or MP4 stream in `mpv`.
 
