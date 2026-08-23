@@ -123,8 +123,13 @@ function xCardFromPost(post, includes, processed, isPinned) {
   if (entry && entry.contentKind === "gallery" && !entry.streamURL) return null
 
   var media = mediaForPost(post, includes)
-  var streamUrl = (entry && entry.streamURL) || bestVariantUrl(media) || null
   var broadcastUrl = broadcastUrlFromPost(post) || broadcastUrlFromReferenced(post, includes)
+  // A processed stream is only trustworthy when the API post itself has media
+  // or explicitly links a broadcast. Older cache generators could scrape a
+  // reply video from the rendered page of an otherwise text-only post.
+  var processedStreamUrl = (entry && entry.streamURL) || null
+  if (processedStreamUrl && !media.length && !broadcastUrl) processedStreamUrl = null
+  var streamUrl = processedStreamUrl || bestVariantUrl(media) || null
   if (!streamUrl && !broadcastUrl) return null
 
   var statusUrl = "https://x.com/spacex/status/" + post.id

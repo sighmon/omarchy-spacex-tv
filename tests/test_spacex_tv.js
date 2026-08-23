@@ -87,6 +87,31 @@ test("cardsFromCache yields X broadcasts and Starship films with titles and stre
   )
 })
 
+test("text-only X posts ignore processed streams scraped from reply media", () => {
+  const cache = {
+    processed_cards: {
+      version: 4,
+      entries: {
+        "post:plain": {
+          streamURL: "https://video.twimg.com/amplify_video/reply/pl/unrelated.m3u8",
+          contentKind: "video",
+          hasUsableContent: true
+        }
+      }
+    },
+    timeline: {
+      data: [{
+        id: "plain",
+        text: "Deployment confirmed",
+        created_at: "2026-08-22T08:29:39.000Z"
+      }],
+      includes: { media: [] }
+    }
+  }
+
+  assert.deepEqual(Discovery.cardsFromCache(cache), [])
+})
+
 test("nextLaunchFromFeeds joins a future correlationId and remaining time is > 0", () => {
   const tiles = loadFixture("launch-tiles-future.json")
   const timings = loadFixture("future-missions-future.json")
