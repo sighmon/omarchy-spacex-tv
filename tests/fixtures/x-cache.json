@@ -1,0 +1,235 @@
+{
+  "generated_at": "2026-08-22T20:30:19Z",
+  "source": "x-api-and-spacex-cms-cache-v4",
+  "user": {
+    "data": {
+      "id": "34743251",
+      "name": "SpaceX",
+      "pinned_tweet_id": "2087283977866379361",
+      "username": "SpaceX"
+    }
+  },
+  "pinned": {
+    "data": [
+      {
+        "id": "2087283977866379361",
+        "text": "We made rockets reusable and are rebuilding the internet in space. The next challenge: making life multiplanetary and understanding the true nature of the universe\n\nWatch @ElonMusk deliver a company update to @SpaceX employees https://t.co/5c8rxoCQfu",
+        "created_at": "2026-08-11T21:04:14.000Z",
+        "attachments": {
+          "media_keys": [
+            "13_2087281838456705024"
+          ]
+        },
+        "entities": {
+          "urls": [
+            {
+              "url": "https://t.co/5c8rxoCQfu",
+              "expanded_url": "https://x.com/SpaceX/status/2087283977866379361/video/1"
+            }
+          ]
+        }
+      }
+    ],
+    "includes": {
+      "media": [
+        {
+          "media_key": "13_2087281838456705024",
+          "type": "video",
+          "variants": [
+            {
+              "content_type": "application/x-mpegURL",
+              "url": "https://video.twimg.com/amplify_video/2087281838456705024/pl/UtMnXZUJSgozAC0C.m3u8"
+            },
+            {
+              "bit_rate": 10368000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/1920x1080/N2MfINhf08wJKG7W.mp4"
+            },
+            {
+              "bit_rate": 832000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/640x360/J28LCNarI7sI_fbV.mp4"
+            },
+            {
+              "bit_rate": 2176000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/1280x720/2C9T7Odp2i3ypVNl.mp4"
+            },
+            {
+              "bit_rate": 256000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/480x270/1bCGRgt0OfMlyzh0.mp4"
+            }
+          ],
+          "preview_image_url": "https://pbs.twimg.com/amplify_video_thumb/2087281838456705024/img/sUQVpLkbpTSXmQsH.jpg",
+          "width": 1920,
+          "height": 1080
+        }
+      ]
+    }
+  },
+  "timeline": {
+    "data": [
+      {
+        "id": "2091086303068918197",
+        "text": "Falcon 9 lifts off from California and delivers 27 @Starlink satellites to orbit, completing our 100th Falcon launch of the year https://t.co/cL8QFGCBHV",
+        "created_at": "2026-08-22T08:53:19.000Z",
+        "attachments": {
+          "media_keys": [
+            "3_2091085551915159552",
+            "3_2091085559141949440",
+            "13_2091085581963186176"
+          ]
+        },
+        "entities": {
+          "urls": [
+            {
+              "url": "https://t.co/cL8QFGCBHV",
+              "expanded_url": "https://x.com/SpaceX/status/2091086303068918197/video/1"
+            },
+            {
+              "url": "https://t.co/cL8QFGCBHV",
+              "expanded_url": "https://x.com/SpaceX/status/2091086303068918197/video/1"
+            },
+            {
+              "url": "https://t.co/cL8QFGCBHV",
+              "expanded_url": "https://x.com/SpaceX/status/2091086303068918197/video/1"
+            }
+          ]
+        }
+      }
+    ],
+    "includes": {
+      "media": [
+        {
+          "media_key": "3_2091085551915159552",
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HQUHOvza0AAoPmK.jpg",
+          "width": 3840,
+          "height": 2880
+        },
+        {
+          "media_key": "3_2091085559141949440",
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HQUHPKua4AAOfND.jpg",
+          "width": 2880,
+          "height": 3840
+        },
+        {
+          "media_key": "13_2091085581963186176",
+          "type": "video",
+          "variants": [
+            {
+              "bit_rate": 256000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/480x270/xsgXxouHG2pHGpfa.mp4"
+            },
+            {
+              "bit_rate": 832000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/640x360/5EiQ83b2KrhCYJxW.mp4"
+            },
+            {
+              "bit_rate": 2176000,
+              "content_type": "video/mp4",
+              "url": "https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/1280x720/Gs9EqQOkD2KXqH8t.mp4"
+            },
+            {
+              "content_type": "application/x-mpegURL",
+              "url": "https://video.twimg.com/amplify_video/2091085581963186176/pl/G8Ch3tpdyKo80sbk.m3u8"
+            }
+          ],
+          "preview_image_url": "https://pbs.twimg.com/amplify_video_thumb/2091085581963186176/img/8IS5Kb-EcS5gOrlX.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    }
+  },
+  "processed_cards": {
+    "version": 4,
+    "entries": {
+      "post:2087283977866379361": {
+        "fingerprint": "id:2087283977866379361|t:We made rockets reusable and are rebuilding the internet in space. The next challenge: making life multiplanetary and understanding the true nature of the universe\n\nWatch @ElonMusk deliver a company update to @SpaceX employees https://t.co/5c8rxoCQfu|at:1786482254|m:13_2087281838456705024:video:https://video.twimg.com/amplify_video/2087281838456705024/pl/UtMnXZUJSgozAC0C.m3u8:application/x-mpegURL:,https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/1280x720/2C9T7Odp2i3ypVNl.mp4:video/mp4:2176000,https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/1920x1080/N2MfINhf08wJKG7W.mp4:video/mp4:10368000,https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/480x270/1bCGRgt0OfMlyzh0.mp4:video/mp4:256000,https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/640x360/J28LCNarI7sI_fbV.mp4:video/mp4:832000:https://pbs.twimg.com/amplify_video_thumb/2087281838456705024/img/sUQVpLkbpTSXmQsH.jpg::1920:1080:",
+        "lastChecked": "2026-08-19T03:55:17Z",
+        "expiresAt": "2026-08-26T03:55:17Z",
+        "streamURL": "https://video.twimg.com/amplify_video/2087281838456705024/vid/avc1/1920x1080/N2MfINhf08wJKG7W.mp4",
+        "thumbnailURL": "https://pbs.twimg.com/amplify_video_thumb/2087281838456705024/img/sUQVpLkbpTSXmQsH.jpg",
+        "isLive": null,
+        "contentKind": "video",
+        "hasUsableContent": true
+      },
+      "post:2091086303068918197": {
+        "fingerprint": "id:2091086303068918197|t:Falcon 9 lifts off from California and delivers 27 @Starlink satellites to orbit, completing our 100th Falcon launch of the year https://t.co/cL8QFGCBHV|at:1787388799|m:13_2091085581963186176:video:https://video.twimg.com/amplify_video/2091085581963186176/pl/G8Ch3tpdyKo80sbk.m3u8:application/x-mpegURL:,https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/1280x720/Gs9EqQOkD2KXqH8t.mp4:video/mp4:2176000,https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/480x270/xsgXxouHG2pHGpfa.mp4:video/mp4:256000,https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/640x360/5EiQ83b2KrhCYJxW.mp4:video/mp4:832000:https://pbs.twimg.com/amplify_video_thumb/2091085581963186176/img/8IS5Kb-EcS5gOrlX.jpg::1280:720:,3_2091085551915159552:photo:::https://pbs.twimg.com/media/HQUHOvza0AAoPmK.jpg:3840:2880:,3_2091085559141949440:photo:::https://pbs.twimg.com/media/HQUHPKua4AAOfND.jpg:2880:3840:",
+        "lastChecked": "2026-08-22T20:30:15Z",
+        "expiresAt": "2026-08-29T20:30:15Z",
+        "streamURL": "https://video.twimg.com/amplify_video/2091085581963186176/vid/avc1/1280x720/Gs9EqQOkD2KXqH8t.mp4",
+        "thumbnailURL": "https://pbs.twimg.com/media/HQUHOvza0AAoPmK.jpg",
+        "isLive": null,
+        "contentKind": "video",
+        "hasUsableContent": true
+      }
+    }
+  },
+  "starship_playlist": {
+    "title": "STARSHIP",
+    "link": "starship",
+    "media": [
+      {
+        "documentId": "ehk5zm9gm9kazx06epzzxglt",
+        "title": "Critical Path",
+        "link": "critical-path",
+        "shortDescription": "July 10, 2026<hr>\nExperience the final days before launching the world\u2019s most powerful rocket.",
+        "date": "2026-07-10",
+        "hdLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002_720P.mp4",
+        "fhdLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002_1080P.mp4",
+        "uhdLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002_4K.mp4",
+        "hdStreamingLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002/StarshipDoc_Ep002-720p.m3u8",
+        "fhdStreamingLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002/StarshipDoc_Ep002-1080p.m3u8",
+        "uhdStreamingLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002/StarshipDoc_Ep002-4k.m3u8",
+        "autoStreamingLink": "https://content.spacex.com/cms-assets/content-hub/documentary/StarshipDoc_Ep002/StarshipDoc_Ep002.m3u8",
+        "poster": {
+          "url": "https://sxcontent9668.azureedge.us/cms-assets/assets/Starship_Ep2_Poster_c5976ce9f0_fe902fd515.png",
+          "formats": {
+            "large": {
+              "url": "https://sxcontent9668.azureedge.us/cms-assets/assets/large_Starship_Ep2_Poster_c5976ce9f0_fe902fd515.png"
+            },
+            "medium": {
+              "url": "https://sxcontent9668.azureedge.us/cms-assets/assets/medium_Starship_Ep2_Poster_c5976ce9f0_fe902fd515.png"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "starship_flight_tests_playlist": {
+    "title": "STARSHIP FLIGHT TESTS",
+    "link": "starship-flight-tests",
+    "media": [
+      {
+        "documentId": "whgc71tq04r7ywhbpdyir6iw",
+        "title": "Starship\u2019s Twelfth Flight Test",
+        "link": "flight-12",
+        "date": "2026-05-22",
+        "hdLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12_720P.mp4",
+        "fhdLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12_1080P.mp4",
+        "uhdLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12_4K.mp4",
+        "hdStreamingLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12/Flight_12-720p.m3u8",
+        "fhdStreamingLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12/Flight_12-1080p.m3u8",
+        "uhdStreamingLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12/Flight_12-4k.m3u8",
+        "autoStreamingLink": "https://content.spacex.com/cms-assets/content-hub/starship-flights/Flight_12/Flight_12.m3u8",
+        "poster": {
+          "url": "https://sxcontent9668.azureedge.us/cms-assets/assets/Twelfth_Flight_Test_player_d5dbafb5cb.jpg",
+          "formats": {
+            "large": {
+              "url": "https://sxcontent9668.azureedge.us/cms-assets/assets/large_Twelfth_Flight_Test_player_d5dbafb5cb.jpg"
+            },
+            "medium": {
+              "url": "https://sxcontent9668.azureedge.us/cms-assets/assets/medium_Twelfth_Flight_Test_player_d5dbafb5cb.jpg"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

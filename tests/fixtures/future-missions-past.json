@@ -1,0 +1,44 @@
+{
+  "PAST-STARLINK-1": {
+    "Id": 0,
+    "CorrelationId": "PAST-STARLINK-1",
+    "PrimaryLaunchDate": {
+      "Seconds": 1700000000,
+      "Nanos": 0
+    },
+    "PrimaryLaunchWindow": {
+      "Open": {
+        "Seconds": 1700000000,
+        "Nanos": 0
+      },
+      "Close": {
+        "Seconds": 1700014400,
+        "Nanos": 0
+      }
+    },
+    "TZeroLaunchDate": null,
+    "TZeroPaused": null,
+    "IsPrimaryLaunchTimeGiven": true
+  },
+  "PAST-STARLINK-2": {
+    "Id": 1,
+    "CorrelationId": "PAST-STARLINK-2",
+    "PrimaryLaunchDate": {
+      "Seconds": 1690000000,
+      "Nanos": 0
+    },
+    "PrimaryLaunchWindow": {
+      "Open": {
+        "Seconds": 1690000000,
+        "Nanos": 0
+      },
+      "Close": {
+        "Seconds": 1690014400,
+        "Nanos": 0
+      }
+    },
+    "TZeroLaunchDate": null,
+    "TZeroPaused": null,
+    "IsPrimaryLaunchTimeGiven": false
+  }
+}

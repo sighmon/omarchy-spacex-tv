@@ -1,0 +1,56 @@
+{
+  "FUTURE-STARLINK-1": {
+    "Id": 0,
+    "CorrelationId": "FUTURE-STARLINK-1",
+    "MissionNumber": 0,
+    "Name": "",
+    "VehicleName": "Falcon 9",
+    "PrimaryLaunchDate": {
+      "Seconds": 1900086400,
+      "Nanos": 0
+    },
+    "LaunchSite": null,
+    "LandingSites": [],
+    "PrimaryLaunchWindow": {
+      "Open": {
+        "Seconds": 1900086400,
+        "Nanos": 0
+      },
+      "Close": {
+        "Seconds": 1900100800,
+        "Nanos": 0
+      }
+    },
+    "TZeroValue": null,
+    "TZeroLaunchDate": null,
+    "TZeroPaused": null,
+    "TZeroChanged": null,
+    "TZeroStale": null,
+    "IsPrimaryLaunchTimeGiven": true,
+    "Order": 0
+  },
+  "LATER-STARLINK-2": {
+    "Id": 1,
+    "CorrelationId": "LATER-STARLINK-2",
+    "MissionNumber": 0,
+    "Name": "",
+    "VehicleName": "Falcon 9",
+    "PrimaryLaunchDate": {
+      "Seconds": 1901000000,
+      "Nanos": 0
+    },
+    "PrimaryLaunchWindow": {
+      "Open": {
+        "Seconds": 1901000000,
+        "Nanos": 0
+      },
+      "Close": {
+        "Seconds": 1901014400,
+        "Nanos": 0
+      }
+    },
+    "TZeroLaunchDate": null,
+    "TZeroPaused": null,
+    "IsPrimaryLaunchTimeGiven": false
+  }
+}

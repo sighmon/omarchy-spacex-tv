@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "com.sighmon.spacex-tv",
+  "name": "SpaceX TV",
+  "version": "1.0.5",
+  "author": "sighmon",
+  "license": "MIT",
+  "description": "Watch SpaceX broadcasts and Starship films from the Omarchy bar, with a next-launch countdown.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "SpaceX TV",
+    "description": "Next-launch countdown with poster cards for SpaceX broadcasts and Starship films.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "showCountdown": true
+    },
+    "schema": [
+      {
+        "key": "showCountdown",
+        "type": "boolean",
+        "label": "Show countdown on the bar",
+        "defaultValue": true
+      }
+    ]
+  }
+}
