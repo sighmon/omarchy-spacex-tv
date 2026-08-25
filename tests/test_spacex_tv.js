@@ -189,7 +189,9 @@ test("Starship launch tiles add upcoming and YouTube flight-test cards", () => {
     }
   }
 
-  const cards = Discovery.cardsFromCache(cache)
+  const cards = Discovery.cardsFromCache(cache, {
+    nowMs: Date.parse("2026-08-25T00:00:00Z")
+  })
   const upcoming = cards.find((card) => card.id === "flight-test:flight-14")
   const youtube = cards.find((card) => card.id === "flight-test:flight-15")
   assert.equal(upcoming.isUpcoming, true)
@@ -276,6 +278,71 @@ test("Flight Tests deduplicate playlist, mission-tile, and ordinal X representat
   assert.equal(matches.length, 1)
   assert.equal(matches[0].id, "starshipFlightTest:canonical-copy")
   assert.equal(matches[0].flightTestSource, "playlist")
+})
+
+test("flight-test photo galleries survive video card deduplication", () => {
+  const cache = {
+    timeline: {
+      data: [{
+        id: "flight-12-photos",
+        text: "Starship’s Twelfth Flight Test photos",
+        attachments: { media_keys: ["flight-photo"] }
+      }],
+      includes: {
+        media: [{
+          media_key: "flight-photo",
+          type: "photo",
+          url: "https://pbs.twimg.com/media/flight-12.jpg"
+        }]
+      }
+    },
+    starship_flight_tests_playlist: {
+      media: [{
+        documentId: "flight-12-video",
+        title: "Starship’s Twelfth Flight Test",
+        link: "flight-12",
+        date: "2026-05-22",
+        autoStreamingLink: "https://content.spacex.com/flight-12.m3u8"
+      }]
+    }
+  }
+
+  const matches = Discovery.cardsFromCache(cache)
+    .filter((card) => card.flightTestKey === "flight-12")
+  assert.equal(matches.length, 2)
+  assert.deepEqual(matches.map((card) => card.contentKind).sort(), ["gallery", "video"])
+})
+
+test("historical tiles without webcasts remain openable instead of upcoming", () => {
+  const cache = {
+    starship_launch_tiles: [
+      {
+        title: "Starship High Altitude Test - SN11",
+        link: "starship-sn11",
+        vehicle: "Starship",
+        launchDate: "2021-03-30",
+        launchTime: "08:00:00"
+      },
+      {
+        title: "Starship Flight 14",
+        link: "starship-flight-14",
+        vehicle: "Starship",
+        launchDate: "2026-09-01",
+        launchTime: "08:00:00"
+      }
+    ],
+    starship_missions: {}
+  }
+
+  const cards = Discovery.cardsFromCache(cache, {
+    nowMs: Date.parse("2026-08-25T00:00:00Z")
+  })
+  const historical = cards.find((card) => card.flightTestKey === "sn11")
+  const future = cards.find((card) => card.flightTestKey === "flight-14")
+  assert.equal(historical.isUpcoming, false)
+  assert.equal(historical.subtitle, "Starship flight test")
+  assert.match(Discovery.playableUrl(historical), /spacex\.com\/launches\/starship-sn11/)
+  assert.equal(future.isUpcoming, true)
 })
 
 test("SN prototype tests remain distinct from similarly numbered integrated flights", () => {

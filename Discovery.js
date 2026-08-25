@@ -15,6 +15,7 @@ function cardsFromCache(cache, options) {
   // HLS first: SpaceX flight-test MP4s are multi-GB progressive files that
   // stall mpv. Match the iOS default (prefersMP4Playback = false).
   var prefersMP4 = !!(options && options.prefersMP4Playback === true)
+  var nowMs = options && options.nowMs != null ? Number(options.nowMs) : Date.now()
   var processed = (cache.processed_cards && cache.processed_cards.entries) || {}
   var seenIds = {}
   var cards = []
@@ -54,7 +55,7 @@ function cardsFromCache(cache, options) {
   appendPlaylistCards(cards, seenIds, cache.starship_playlist, CACHE_STARSHIP_FILM, "Starship film", prefersMP4)
   appendPlaylistCards(cards, seenIds, cache.starship_flight_tests_playlist, CACHE_STARSHIP_FLIGHT_TEST, "Starship flight test", prefersMP4)
   appendPlaylistCards(cards, seenIds, cache.starship_talks_playlist, CACHE_STARSHIP_TALK, "Starship talk", prefersMP4)
-  appendFlightTestTiles(cards, seenIds, cache.starship_launch_tiles, cache.starship_missions)
+  appendFlightTestTiles(cards, seenIds, cache.starship_launch_tiles, cache.starship_missions, nowMs)
   cards = deduplicatedFlightTests(cards)
 
   for (i = 0; i < cards.length; i++) delete cards[i]._sortMs
@@ -420,7 +421,7 @@ function cardFromStarshipMedia(media, kind, subtitle, prefersMP4) {
   }
 }
 
-function appendFlightTestTiles(cards, seenIds, tiles, missions) {
+function appendFlightTestTiles(cards, seenIds, tiles, missions, nowMs) {
   var list = Array.isArray(tiles) ? tiles.slice() : []
   list.sort(function (a, b) {
     return (Date.parse(b.launchDate || "") || 0) - (Date.parse(a.launchDate || "") || 0)
@@ -432,6 +433,7 @@ function appendFlightTestTiles(cards, seenIds, tiles, missions) {
     if (!key) continue
     var mission = (missions && missions[tile.link]) || {}
     var webcast = preferredWebcast(mission.webcasts)
+    var isUpcoming = !webcast && isFutureLaunchTile(tile, nowMs)
     var sourceUrl = webcastUrl(webcast) || (tile.link ? "https://www.spacex.com/launches/" + tile.link : "https://www.spacex.com/launches")
     var image = launchPoster(mission.imageDesktop) || launchPoster(tile.imageDesktop)
     var dedupe = "flight-test:" + key
@@ -441,7 +443,7 @@ function appendFlightTestTiles(cards, seenIds, tiles, missions) {
       id: dedupe,
       kind: CACHE_STARSHIP_FLIGHT_TEST,
       title: String(tile.shortTitle || tile.title || "Starship flight test"),
-      subtitle: webcast ? "Starship flight test" : "Upcoming Starship flight test",
+      subtitle: isUpcoming ? "Upcoming Starship flight test" : "Starship flight test",
       streamUrl: null,
       fallbackStreamUrl: null,
       sourceUrl: sourceUrl,
@@ -452,11 +454,22 @@ function appendFlightTestTiles(cards, seenIds, tiles, missions) {
       contentKind: CONTENT_VIDEO,
       mediaItems: [],
       galleryImages: [],
-      isUpcoming: !webcast,
+      isUpcoming: isUpcoming,
       publishedAt: tile.launchDate || null,
       description: missionSummary(mission) || [tile.vehicle, tile.launchSite].filter(Boolean).join(" · ")
     })
   }
+}
+
+function isFutureLaunchTile(tile, nowMs) {
+  if (!tile || !tile.launchDate) return false
+  var date = String(tile.launchDate)
+  var time = String(tile.launchTime || "23:59:59")
+  var stamp = /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date + "T" + time + "Z"
+    : date
+  var launchMs = Date.parse(stamp)
+  return isFinite(launchMs) && launchMs > Number(nowMs == null ? Date.now() : nowMs)
 }
 
 function flightTestKey(link, title) {
@@ -499,7 +512,8 @@ function deduplicatedFlightTests(cards) {
   var i
   for (i = 0; i < (cards || []).length; i++) {
     var card = cards[i]
-    var key = card && card.flightTestKey
+    if (!isFlightTestDedupeCandidate(card)) continue
+    var key = card.flightTestKey
     if (!key) continue
     card.flightTestKey = key
     var current = winners[key]
@@ -511,10 +525,18 @@ function deduplicatedFlightTests(cards) {
   var result = []
   for (i = 0; i < (cards || []).length; i++) {
     var candidate = cards[i]
-    var candidateKey = candidate && candidate.flightTestKey
+    if (!isFlightTestDedupeCandidate(candidate)) {
+      result.push(candidate)
+      continue
+    }
+    var candidateKey = candidate.flightTestKey
     if (!candidateKey || winners[candidateKey].card === candidate) result.push(candidate)
   }
   return result
+}
+
+function isFlightTestDedupeCandidate(card) {
+  return !!card && card.contentKind === CONTENT_VIDEO && !!card.flightTestKey
 }
 
 function prefersFlightTestCard(candidate, current) {
