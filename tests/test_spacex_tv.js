@@ -20,10 +20,11 @@ test("remote JSON collectors have byte ceilings and feed titles render as plain 
   assert.match(panel, /head -c \\"\$3\\"/)
   assert.equal(
     (panel.match(/command: root\.boundedJsonCommand\(/g) || []).length,
-    3,
-    "every remote JSON process must use the bounded command"
+    2,
+    "launch feeds must use the bounded command"
   )
-  assert.match(panel, /text: root\.nextLaunch \? root\.nextLaunch\.title[\s\S]*?textFormat: Text\.PlainText/)
+  assert.match(panel, /root\.cachedJsonCommand\(root\.cacheUrl/)
+  assert.match(panel, /root\.nextLaunch\.title : "SpaceX TV"\)[\s\S]*?textFormat: Text\.PlainText/)
   assert.match(panel, /text: cardItem\.card && cardItem\.card\.title[\s\S]*?textFormat: Text\.PlainText/)
 })
 
@@ -127,6 +128,199 @@ test("text-only X posts ignore processed streams scraped from reply media", () =
   assert.deepEqual(Discovery.cardsFromCache(cache), [])
 })
 
+test("X photo and mixed-media posts become galleries and collections", () => {
+  const photo = {
+    media_key: "photo-1",
+    type: "photo",
+    url: "https://pbs.twimg.com/media/example.jpg",
+    width: 1600,
+    height: 900
+  }
+  const video = {
+    media_key: "video-1",
+    type: "video",
+    preview_image_url: "https://pbs.twimg.com/video-thumb.jpg",
+    variants: [
+      { content_type: "application/x-mpegURL", url: "https://video.twimg.com/example.m3u8" },
+      { content_type: "video/mp4", bit_rate: 1000, url: "https://video.twimg.com/example.mp4" }
+    ]
+  }
+  const cache = {
+    timeline: {
+      data: [
+        { id: "gallery", text: "Launch photos", attachments: { media_keys: ["photo-1"] } },
+        { id: "mixed", text: "Launch recap", attachments: { media_keys: ["video-1", "photo-1"] } }
+      ],
+      includes: { media: [photo, video] }
+    }
+  }
+
+  const cards = Discovery.cardsFromCache(cache)
+  const gallery = cards.find((card) => card.id === "x:gallery")
+  const collection = cards.find((card) => card.id === "x:mixed")
+  assert.equal(gallery.contentKind, "gallery")
+  assert.equal(gallery.galleryImages.length, 1)
+  assert.match(gallery.galleryImages[0], /name=orig$/)
+  assert.equal(collection.contentKind, "collection")
+  assert.deepEqual(collection.mediaItems.map((item) => item.kind), ["video", "photo"])
+  assert.match(collection.streamUrl, /\.m3u8$/)
+  assert.match(collection.fallbackStreamUrl, /\.mp4$/)
+})
+
+test("Starship launch tiles add upcoming and YouTube flight-test cards", () => {
+  const baseTile = {
+    title: "Starship Flight 14",
+    shortTitle: "Flight 14",
+    vehicle: "Starship",
+    launchSite: "Starbase",
+    launchDate: "2026-09-01",
+    imageDesktop: { url: "https://content.spacex.com/flight-14.jpg" }
+  }
+  const cache = {
+    starship_launch_tiles: [
+      { ...baseTile, link: "starship-flight-14" },
+      { ...baseTile, title: "Starship Flight 15", shortTitle: "Flight 15", link: "starship-flight-15" }
+    ],
+    starship_missions: {
+      "starship-flight-15": {
+        webcasts: [{ streamingVideoType: "youtube", videoId: "abc123" }],
+        paragraphs: [{ content: "<p>Live from Starbase.</p>" }]
+      }
+    }
+  }
+
+  const cards = Discovery.cardsFromCache(cache)
+  const upcoming = cards.find((card) => card.id === "flight-test:flight-14")
+  const youtube = cards.find((card) => card.id === "flight-test:flight-15")
+  assert.equal(upcoming.isUpcoming, true)
+  assert.match(upcoming.sourceUrl, /spacex\.com\/launches/)
+  assert.equal(youtube.isUpcoming, false)
+  assert.equal(youtube.sourceKind, "youtube")
+  assert.equal(youtube.sourceUrl, "https://www.youtube.com/watch?v=abc123")
+  assert.equal(youtube.description, "Live from Starbase.")
+})
+
+test("Flight Tests are ordered upcoming-first and then newest-to-oldest", () => {
+  const cards = [
+    { id: "old", kind: Discovery.CACHE_STARSHIP_FLIGHT_TEST, title: "Flight 9", publishedAt: "2025-01-01" },
+    { id: "film", kind: Discovery.CACHE_STARSHIP_FILM, title: "A film", publishedAt: "2026-08-01" },
+    { id: "new", kind: Discovery.CACHE_STARSHIP_FLIGHT_TEST, title: "Flight 12", publishedAt: "2026-05-22" },
+    { id: "undated", kind: Discovery.CACHE_STARSHIP_FLIGHT_TEST, title: "Unknown date" },
+    { id: "upcoming", kind: Discovery.CACHE_STARSHIP_FLIGHT_TEST, title: "Flight 13", publishedAt: "2026-09-01", isUpcoming: true }
+  ]
+
+  const section = Discovery.sectionsFromCards(cards)
+    .find((candidate) => candidate.id === Discovery.CACHE_STARSHIP_FLIGHT_TEST)
+  assert.deepEqual(section.cards.map((card) => card.id), [
+    "upcoming",
+    "new",
+    "old",
+    "undated"
+  ])
+})
+
+test("Flight Tests deduplicate playlist, mission-tile, and ordinal X representations", () => {
+  const cache = {
+    timeline: {
+      data: [{
+        id: "x-flight-12",
+        text: "Starship’s Twelfth Flight Test",
+        created_at: "2026-05-22T10:00:00Z",
+        attachments: { media_keys: ["x-video"] }
+      }],
+      includes: {
+        media: [{
+          media_key: "x-video",
+          type: "video",
+          variants: [{
+            content_type: "application/x-mpegURL",
+            url: "https://content.spacex.com/flight-12.m3u8"
+          }]
+        }]
+      }
+    },
+    starship_flight_tests_playlist: {
+      media: [
+        {
+          documentId: "older-copy",
+          title: "Starship’s Twelfth Flight Test",
+          link: "flight-12",
+          date: "2026-05-21",
+          autoStreamingLink: "https://content.spacex.com/flight-12-old.m3u8"
+        },
+        {
+          documentId: "canonical-copy",
+          title: "Starship’s Twelfth Flight Test",
+          link: "starship-flight-12",
+          date: "2026-05-22",
+          autoStreamingLink: "https://content.spacex.com/flight-12.m3u8"
+        }
+      ]
+    },
+    starship_launch_tiles: [{
+      title: "Starship Flight 12",
+      shortTitle: "Flight 12",
+      link: "starship-flight-12",
+      vehicle: "Starship",
+      launchDate: "2026-05-22"
+    }],
+    starship_missions: {
+      "starship-flight-12": {
+        webcasts: [{ streamingVideoType: "x.com", videoId: "flight12broadcast" }]
+      }
+    }
+  }
+
+  const matches = Discovery.cardsFromCache(cache)
+    .filter((card) => card.flightTestKey === "flight-12")
+  assert.equal(matches.length, 1)
+  assert.equal(matches[0].id, "starshipFlightTest:canonical-copy")
+  assert.equal(matches[0].flightTestSource, "playlist")
+})
+
+test("SN prototype tests remain distinct from similarly numbered integrated flights", () => {
+  const cache = {
+    starship_flight_tests_playlist: {
+      media: [{
+        documentId: "flight-11-playlist",
+        title: "Starship’s Eleventh Flight Test",
+        link: "flight-11",
+        date: "2025-10-13",
+        autoStreamingLink: "https://content.spacex.com/flight-11.m3u8"
+      }]
+    },
+    starship_launch_tiles: [
+      {
+        title: "Starship High Altitude Test - SN11",
+        link: "starship-sn11",
+        vehicle: "Starship",
+        launchDate: "2021-03-30"
+      },
+      {
+        title: "Starship High Altitude Test - SN9",
+        link: "starship-sn9",
+        vehicle: "Starship",
+        launchDate: "2021-02-02"
+      }
+    ],
+    starship_missions: {
+      "starship-sn11": {
+        webcasts: [{ streamingVideoType: "youtube", videoId: "sn11-video" }]
+      },
+      "starship-sn9": {
+        webcasts: [{ streamingVideoType: "youtube", videoId: "sn9-video" }]
+      }
+    }
+  }
+
+  const cards = Discovery.cardsFromCache(cache)
+  assert.deepEqual(
+    cards.filter((card) => card.kind === Discovery.CACHE_STARSHIP_FLIGHT_TEST)
+      .map((card) => card.flightTestKey).sort(),
+    ["flight-11", "sn11", "sn9"]
+  )
+})
+
 test("nextLaunchFromFeeds joins a future correlationId and remaining time is > 0", () => {
   const tiles = loadFixture("launch-tiles-future.json")
   const timings = loadFixture("future-missions-future.json")
@@ -172,5 +366,75 @@ test("playLaunch includes the stream URL in the player invocation args", () => {
   assert.ok(
     Play.argv(invocation).includes(streamUrl),
     "argv helper must include the stream URL"
+  )
+  assert.ok(invocation.args.includes("--ytdl=yes"), "webpage fallbacks must resolve at play time")
+})
+
+test("cached live manifests resolve the canonical page before direct playback", () => {
+  const sourceUrl = "https://x.com/i/broadcasts/example"
+  const liveUrl = "https://video.pscp.tv/master_dynamic_delta.m3u8?type=live"
+  const fallbackUrl = "https://video.pscp.tv/replay.mp4"
+  assert.deepEqual(
+    Play.playbackCandidates({
+      sourceUrl,
+      streamUrl: liveUrl,
+      fallbackStreamUrl: fallbackUrl,
+      isLive: true
+    }),
+    [
+      sourceUrl,
+      "https://video.pscp.tv/master_dynamic_delta.m3u8?type=replay",
+      liveUrl,
+      fallbackUrl
+    ]
+  )
+  assert.equal(Play.isProvisionalLiveUrl(liveUrl), true)
+  assert.equal(
+    Play.replayUrlForLiveStream(liveUrl),
+    "https://video.pscp.tv/master_dynamic_delta.m3u8?type=replay"
+  )
+})
+
+test("archived media keeps direct streams ahead of webpage fallback", () => {
+  const sourceUrl = "https://x.com/spacex/status/example"
+  const hlsUrl = "https://video.twimg.com/archive.m3u8"
+  const mp4Url = "https://video.twimg.com/archive.mp4"
+  assert.deepEqual(
+    Play.playbackCandidates({
+      sourceUrl,
+      streamUrl: hlsUrl,
+      fallbackStreamUrl: mp4Url,
+      isLive: false
+    }),
+    [hlsUrl, mp4Url, sourceUrl]
+  )
+})
+
+test("gallery images open through a bounded fullscreen viewer command", () => {
+  const imageUrl = "https://pbs.twimg.com/media/example.jpg?name=orig"
+  const cachePath = "/tmp/space x/gallery-image"
+  const invocation = Play.viewImage(imageUrl, cachePath, { maxBytes: 1024 })
+  assert.equal(invocation.command, "/bin/bash")
+  assert.ok(invocation.args.includes(imageUrl), "image URL must be a positional argument")
+  assert.ok(invocation.args.includes(cachePath), "cache path must be a positional argument")
+  assert.match(invocation.args[1], /swayimg -f/)
+  assert.match(invocation.args[1], /imv -f/)
+  assert.match(invocation.args[1], /exec xdg-open/)
+  assert.match(invocation.args[1], /--max-filesize/)
+})
+
+test("panel supports local cache fallback, manual refresh, media browsing, and alternate retries", () => {
+  const panel = fs.readFileSync(path.join(root, "Panel.qml"), "utf8")
+  assert.match(panel, /function cachedJsonCommand\(/)
+  assert.match(panel, /Retrying with alternate stream/)
+  assert.match(panel, /Checking for a newly published livestream/)
+  assert.match(panel, /contentKind === "gallery"/)
+  assert.match(panel, /contentKind === "collection"/)
+  assert.match(panel, /onClicked: root\.openGalleryImage\(galleryImage\.source\)/)
+  assert.match(panel, /↻ Refresh/)
+  assert.match(
+    panel,
+    /PreferenceControls \{\s*anchors\.horizontalCenter: parent\.horizontalCenter\s*\}[\s\S]*?text: "v1\.1\.0"/,
+    "preferences must be centered immediately above the version footer"
   )
 })

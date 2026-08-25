@@ -21,6 +21,12 @@ Panel {
   property string label: "SpaceX TV"
   property string playingCardId: ""
   property int playGeneration: 0
+  property int playerGeneration: 0
+  property var playAttempts: []
+  property int playAttemptIndex: 0
+  property var selectedMediaCard: null
+  property int selectedImageIndex: 0
+  property string pendingCardId: ""
   property bool filterBroadcasts: true
   property bool filterFilms: true
   property bool filterFlightTests: true
@@ -32,6 +38,25 @@ Panel {
   readonly property int cacheResponseLimit: 8 * 1024 * 1024
   readonly property int launchResponseLimit: 1024 * 1024
   readonly property var barIdentity: hostWidget || root
+  readonly property bool prefersMP4Playback: settingBool("prefersMP4Playback", false)
+  readonly property bool showCardFilters: settingBool("showCardFilters", true)
+  readonly property bool showNextLaunchCountdown: settingBool("showNextLaunchCountdown", true)
+  readonly property bool useLocalCache: settingBool("useLocalCache", true)
+  readonly property string localCachePath: Quickshell.cachePath("omarchy-spacex-tv/x-cache.json")
+  readonly property string galleryImagePath: Quickshell.cachePath("omarchy-spacex-tv/gallery-image")
+
+  function settingBool(key, fallback) {
+    if (!root.hostWidget || typeof root.hostWidget.setting !== "function") return fallback
+    var value = root.hostWidget.setting(key, fallback)
+    if (value === true || value === 1 || value === "true" || value === "1") return true
+    if (value === false || value === 0 || value === "false" || value === "0") return false
+    return fallback
+  }
+
+  function persistSetting(key, value) {
+    if (root.hostWidget && typeof root.hostWidget.persistSetting === "function")
+      root.hostWidget.persistSetting(key, value)
+  }
 
   function boundedJsonCommand(url, maxSeconds, maxBytes) {
     // head is the hard backstop for curl versions older than 8.4, where
@@ -50,12 +75,36 @@ Panel {
     ]
   }
 
+  function cachedJsonCommand(url, maxSeconds, maxBytes, path, allowFallback) {
+    return [
+      "/bin/bash", "-c",
+      "set -o pipefail; p=\"$1\"; mkdir -p \"${p%/*}\"; t=\"${p}.tmp.$$\"; "
+        + "trap 'rm -f \"$t\"' EXIT; "
+        + "if curl -fsSL --compressed --max-time \"$2\" --max-filesize \"$3\" "
+        + "-A 'Mozilla/5.0 Omarchy SpaceXTV/1.0' -H 'Accept: application/json' -- \"$4\" "
+        + "| head -c \"$(($3 + 1))\" > \"$t\" "
+        + "&& [ \"$(wc -c < \"$t\")\" -le \"$3\" ]; then "
+        + "head -c \"$3\" \"$t\"; mv -f \"$t\" \"$p\"; "
+        + "elif [ \"$5\" = 1 ] && [ -s \"$p\" ]; then head -c \"$3\" \"$p\"; else exit 1; fi",
+      "spacex-tv-cache",
+      path,
+      String(maxSeconds),
+      String(maxBytes),
+      url,
+      allowFallback ? "1" : "0"
+    ]
+  }
+
   function open() {
     root.controller.show()
     root.refresh()
   }
 
   function close() {
+    if (root.selectedMediaCard) {
+      root.selectedMediaCard = null
+      return
+    }
     root.controller.hide()
   }
 
@@ -132,8 +181,21 @@ Panel {
   }
 
   function playCard(card) {
+    if (!card) return
+    if (card.contentKind === "gallery" || card.contentKind === "collection") {
+      root.selectedMediaCard = card
+      root.selectedImageIndex = 0
+      return
+    }
+    if (card.isUpcoming && !card.streamUrl) {
+      root.pendingCardId = card.id
+      root.statusText = "Checking for a newly published livestream…"
+      cacheProc.running = false
+      cacheProc.running = true
+      return
+    }
     var url = Discovery.playableUrl(card)
-    if (!url || !card) return
+    if (!url) return
     if (playerProc.running && root.playingCardId === card.id) {
       console.log("[SpaceX TV] already starting", card.id)
       return
@@ -145,16 +207,86 @@ Panel {
     root.statusText = "Starting " + card.title
     console.log("[SpaceX TV] play", card.kind, card.title, url)
 
+    root.playAttempts = Play.playbackCandidates(card)
+    root.playAttemptIndex = 0
+
     function start() {
       if (gen !== root.playGeneration) return
-      var invocation = Play.playLaunch(url)
-      playerProc.command = Play.argv(invocation)
-      playerProc.running = true
-      root.close()
+      root.startPlaybackAttempt(gen)
     }
 
     if (playerProc.running) {
       playerProc.running = false
+      Qt.callLater(start)
+    } else {
+      start()
+    }
+  }
+
+  function startPlaybackAttempt(gen) {
+    if (gen !== root.playGeneration || root.playAttemptIndex >= root.playAttempts.length) return
+    var url = root.playAttempts[root.playAttemptIndex]
+    var invocation = Play.playLaunch(url)
+    console.log("[SpaceX TV] playback attempt", root.playAttemptIndex + 1, url)
+    playerProc.command = Play.argv(invocation)
+    root.playerGeneration = gen
+    playerProc.running = true
+    root.controller.hide()
+  }
+
+  function playMediaItem(item, parentCard) {
+    if (!item || !parentCard) return
+    if (item.kind === "photo") {
+      var photos = []
+      var items = parentCard.mediaItems || []
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === "photo" && items[i].photoUrl) photos.push(items[i].photoUrl)
+      }
+      root.selectedMediaCard = {
+        title: parentCard.title,
+        contentKind: "gallery",
+        galleryImages: photos,
+        publishedAt: parentCard.publishedAt
+      }
+      root.selectedImageIndex = Math.max(0, photos.indexOf(item.photoUrl))
+      return
+    }
+    root.selectedMediaCard = null
+    root.playCard({
+      id: parentCard.id + ":" + item.id,
+      title: parentCard.title,
+      streamUrl: item.streamUrl,
+      fallbackStreamUrl: item.fallbackStreamUrl,
+      sourceUrl: parentCard.sourceUrl,
+      sourceKind: parentCard.sourceKind,
+      contentKind: "video"
+    })
+  }
+
+  function cardMetadata(card) {
+    if (!card) return ""
+    var parts = []
+    if (card.contentKind === "gallery") parts.push((card.galleryImages || []).length + " photos")
+    else if (card.contentKind === "collection") parts.push((card.mediaItems || []).length + " media")
+    else if (card.isUpcoming) parts.push("Upcoming")
+    else if (card.subtitle) parts.push(card.subtitle)
+    if (card.publishedAt) {
+      var date = new Date(card.publishedAt)
+      if (!isNaN(date.getTime())) parts.push(Qt.formatDate(date, "MMM d, yyyy"))
+    }
+    return parts.join(" · ")
+  }
+
+  function openGalleryImage(url) {
+    var invocation = Play.viewImage(url, root.galleryImagePath)
+    if (!invocation.command) return
+    function start() {
+      imageViewerProc.command = Play.argv(invocation)
+      imageViewerProc.running = true
+      root.controller.hide()
+    }
+    if (imageViewerProc.running) {
+      imageViewerProc.running = false
       Qt.callLater(start)
     } else {
       start()
@@ -198,6 +330,13 @@ Panel {
       console.log("[SpaceX TV] mpv exited", exitCode)
       Qt.callLater(function() {
         if (playerProc.running) return
+        if (root.playerGeneration !== root.playGeneration) return
+        if (exitCode && exitCode !== 0 && root.playAttemptIndex + 1 < root.playAttempts.length) {
+          root.playAttemptIndex += 1
+          root.statusText = "Retrying with alternate stream…"
+          root.startPlaybackAttempt(root.playGeneration)
+          return
+        }
         if (exitCode && exitCode !== 0)
           root.statusText = "Playback failed"
         else if (root.statusText.indexOf("Starting ") === 0)
@@ -208,8 +347,23 @@ Panel {
   }
 
   Process {
+    id: imageViewerProc
+    stdout: StdioCollector { waitForEnd: false }
+    stderr: StdioCollector {
+      id: imageViewerErr
+      waitForEnd: false
+    }
+    onExited: function(exitCode) {
+      if (exitCode && exitCode !== 0)
+        console.log("[SpaceX TV] image viewer failed", exitCode, imageViewerErr.text)
+    }
+  }
+
+  Process {
     id: cacheProc
-    command: root.boundedJsonCommand(root.cacheUrl, 20, root.cacheResponseLimit)
+    command: root.useLocalCache
+      ? root.cachedJsonCommand(root.cacheUrl, 20, root.cacheResponseLimit, root.localCachePath, true)
+      : root.boundedJsonCommand(root.cacheUrl, 20, root.cacheResponseLimit)
     stdout: StdioCollector {
       id: cacheStdout
       waitForEnd: true
@@ -225,11 +379,23 @@ Panel {
           return
         }
         try {
-          var parsed = Discovery.cardsFromCache(JSON.parse(raw))
+          var parsed = Discovery.cardsFromCache(JSON.parse(raw), {
+            prefersMP4Playback: root.prefersMP4Playback
+          })
           root.cards = parsed
           root.setSections(Discovery.sectionsFromCards(parsed))
           console.log("[SpaceX TV] loaded", parsed.length, "cards in", root.sections.length, "sections")
           root.statusText = parsed.length ? "" : "No playable broadcasts or films in the cache."
+          if (root.pendingCardId) {
+            var pendingId = root.pendingCardId
+            root.pendingCardId = ""
+            var fresh = null
+            for (var i = 0; i < parsed.length; i++) {
+              if (parsed[i].id === pendingId) { fresh = parsed[i]; break }
+            }
+            if (fresh && !fresh.isUpcoming) root.playCard(fresh)
+            else root.statusText = "Livestream not started yet. Check back closer to launch."
+          }
         } catch (e) {
           console.log("[SpaceX TV] cache parse failed", e)
           if (!root.cards.length) root.statusText = "Could not read SpaceX TV cache."
@@ -307,7 +473,9 @@ Panel {
 
           Text {
             width: parent.width
-            text: root.nextLaunch ? root.nextLaunch.title : "SpaceX TV"
+            text: root.selectedMediaCard
+              ? root.selectedMediaCard.title
+              : (root.nextLaunch && root.showNextLaunchCountdown ? root.nextLaunch.title : "SpaceX TV")
             textFormat: Text.PlainText
             color: root.barForeground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
@@ -318,7 +486,7 @@ Panel {
 
           Text {
             width: parent.width
-            visible: root.nextLaunch != null
+            visible: !root.selectedMediaCard && root.showNextLaunchCountdown && root.nextLaunch != null
             text: root.nextLaunch
               ? (Launch.formatCountdown(Launch.remainingTime(root.nextLaunch, Date.now()))
                  + (root.nextLaunch.vehicle ? " · " + root.nextLaunch.vehicle : ""))
@@ -330,9 +498,133 @@ Panel {
             wrapMode: Text.WordWrap
           }
 
+          component PreferenceControls: Row {
+            spacing: Style.space(6)
+            visible: !root.selectedMediaCard
+
+            Rectangle {
+              implicitWidth: refreshLabel.implicitWidth + Style.space(18)
+              implicitHeight: refreshLabel.implicitHeight + Style.space(10)
+              radius: height / 2
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, refreshArea.containsMouse ? 0.25 : 0.10)
+              Text {
+                id: refreshLabel
+                anchors.centerIn: parent
+                text: cacheProc.running ? "Refreshing…" : "↻ Refresh"
+                color: root.barForeground
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+              MouseArea {
+                id: refreshArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                enabled: !cacheProc.running
+                onClicked: root.refresh()
+              }
+            }
+
+            Rectangle {
+              implicitWidth: formatLabel.implicitWidth + Style.space(18)
+              implicitHeight: formatLabel.implicitHeight + Style.space(10)
+              radius: height / 2
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, formatArea.containsMouse ? 0.25 : 0.10)
+              Text {
+                id: formatLabel
+                anchors.centerIn: parent
+                text: root.prefersMP4Playback ? "MP4 preferred" : "HLS preferred"
+                color: root.barForeground
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+              }
+              MouseArea {
+                id: formatArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.persistSetting("prefersMP4Playback", !root.prefersMP4Playback)
+                  Qt.callLater(root.refresh)
+                }
+              }
+            }
+
+            Rectangle {
+              implicitWidth: countdownSettingLabel.implicitWidth + Style.space(18)
+              implicitHeight: countdownSettingLabel.implicitHeight + Style.space(10)
+              radius: height / 2
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, countdownSettingArea.containsMouse ? 0.25 : 0.10)
+              opacity: root.showNextLaunchCountdown ? 1 : 0.62
+              Text {
+                id: countdownSettingLabel
+                anchors.centerIn: parent
+                text: root.showNextLaunchCountdown ? "Countdown on" : "Countdown off"
+                color: root.barForeground
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+              }
+              MouseArea {
+                id: countdownSettingArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.persistSetting("showNextLaunchCountdown", !root.showNextLaunchCountdown)
+              }
+            }
+
+            Rectangle {
+              implicitWidth: filtersSettingLabel.implicitWidth + Style.space(18)
+              implicitHeight: filtersSettingLabel.implicitHeight + Style.space(10)
+              radius: height / 2
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, filtersSettingArea.containsMouse ? 0.25 : 0.10)
+              opacity: root.showCardFilters ? 1 : 0.62
+              Text {
+                id: filtersSettingLabel
+                anchors.centerIn: parent
+                text: root.showCardFilters ? "Filters on" : "Filters off"
+                color: root.barForeground
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+              }
+              MouseArea {
+                id: filtersSettingArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.persistSetting("showCardFilters", !root.showCardFilters)
+              }
+            }
+
+            Rectangle {
+              implicitWidth: cacheSettingLabel.implicitWidth + Style.space(18)
+              implicitHeight: cacheSettingLabel.implicitHeight + Style.space(10)
+              radius: height / 2
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, cacheSettingArea.containsMouse ? 0.25 : 0.10)
+              opacity: root.useLocalCache ? 1 : 0.62
+              Text {
+                id: cacheSettingLabel
+                anchors.centerIn: parent
+                text: root.useLocalCache ? "Offline cache on" : "Offline cache off"
+                color: root.barForeground
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+              }
+              MouseArea {
+                id: cacheSettingArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.persistSetting("useLocalCache", !root.useLocalCache)
+              }
+            }
+          }
+
           Flow {
             width: parent.width
             spacing: Style.space(6)
+            visible: !root.selectedMediaCard && root.showCardFilters
 
             Repeater {
               model: filterModel
@@ -382,7 +674,7 @@ Panel {
 
           Text {
             width: parent.width
-            visible: root.statusText !== "" && !root.loadingCache
+            visible: !root.selectedMediaCard && root.statusText !== "" && !root.loadingCache
             text: root.statusText
             textFormat: Text.PlainText
             color: root.barForeground
@@ -395,7 +687,7 @@ Panel {
           Item {
             width: parent.width
             height: Style.space(72)
-            visible: root.loadingCache
+            visible: !root.selectedMediaCard && root.loadingCache
 
             Column {
               anchors.centerIn: parent
@@ -429,6 +721,169 @@ Panel {
             }
           }
 
+          Column {
+            width: parent.width
+            spacing: Style.space(10)
+            visible: root.selectedMediaCard != null
+
+            Rectangle {
+              implicitWidth: backLabel.implicitWidth + Style.space(18)
+              implicitHeight: backLabel.implicitHeight + Style.space(10)
+              radius: height / 2
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, backArea.containsMouse ? 0.25 : 0.10)
+              Text {
+                id: backLabel
+                anchors.centerIn: parent
+                text: "← Back"
+                color: root.barForeground
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+              MouseArea {
+                id: backArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.selectedMediaCard = null
+              }
+            }
+
+            Column {
+              width: parent.width
+              spacing: Style.space(8)
+              visible: root.selectedMediaCard && root.selectedMediaCard.contentKind === "gallery"
+
+              Image {
+                id: galleryImage
+                width: parent.width
+                height: Style.space(320)
+                source: root.selectedMediaCard && root.selectedMediaCard.galleryImages
+                  && root.selectedMediaCard.galleryImages.length
+                  ? root.selectedMediaCard.galleryImages[root.selectedImageIndex] : ""
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+
+                Rectangle {
+                  anchors.right: parent.right
+                  anchors.bottom: parent.bottom
+                  anchors.margins: Style.space(8)
+                  implicitWidth: fullscreenLabel.implicitWidth + Style.space(16)
+                  implicitHeight: fullscreenLabel.implicitHeight + Style.space(8)
+                  radius: height / 2
+                  color: Qt.rgba(0, 0, 0, 0.62)
+                  z: 1
+
+                  Text {
+                    id: fullscreenLabel
+                    anchors.centerIn: parent
+                    text: "⛶ Fullscreen"
+                    color: "white"
+                    font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                    font.pixelSize: Style.font.caption
+                  }
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  enabled: galleryImage.source !== ""
+                  onClicked: root.openGalleryImage(galleryImage.source)
+                  z: 2
+                }
+              }
+
+              Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Style.space(14)
+
+                Text {
+                  text: "‹"
+                  color: root.barForeground
+                  opacity: root.selectedImageIndex > 0 ? 1 : 0.3
+                  font.pixelSize: Style.font.title
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: root.selectedImageIndex > 0
+                    onClicked: root.selectedImageIndex -= 1
+                  }
+                }
+                Text {
+                  text: root.selectedMediaCard && root.selectedMediaCard.galleryImages
+                    ? (root.selectedImageIndex + 1) + " of " + root.selectedMediaCard.galleryImages.length : ""
+                  color: root.barForeground
+                  font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                  text: "›"
+                  color: root.barForeground
+                  opacity: root.selectedMediaCard && root.selectedMediaCard.galleryImages
+                    && root.selectedImageIndex + 1 < root.selectedMediaCard.galleryImages.length ? 1 : 0.3
+                  font.pixelSize: Style.font.title
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: root.selectedMediaCard && root.selectedMediaCard.galleryImages
+                      && root.selectedImageIndex + 1 < root.selectedMediaCard.galleryImages.length
+                    onClicked: root.selectedImageIndex += 1
+                  }
+                }
+              }
+            }
+
+            Grid {
+              width: parent.width
+              columns: 2
+              spacing: Style.space(8)
+              visible: root.selectedMediaCard && root.selectedMediaCard.contentKind === "collection"
+
+              Repeater {
+                model: root.selectedMediaCard && root.selectedMediaCard.mediaItems
+                  ? root.selectedMediaCard.mediaItems.length : 0
+
+                Rectangle {
+                  required property int index
+                  readonly property var mediaItem: root.selectedMediaCard.mediaItems[index]
+                  width: (parent.width - parent.spacing) / 2
+                  height: Style.space(110)
+                  radius: Style.cornerRadius
+                  clip: true
+                  color: Qt.rgba(0, 0, 0, 0.25)
+
+                  Image {
+                    anchors.fill: parent
+                    source: mediaItem.thumbnailUrl || mediaItem.photoUrl || ""
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                  }
+                  Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(0, 0, 0, collectionArea.containsMouse ? 0.18 : 0.36)
+                  }
+                  Text {
+                    anchors.centerIn: parent
+                    text: mediaItem.kind === "photo" ? "Photo" : "▶ Video"
+                    color: "white"
+                    font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                  }
+                  MouseArea {
+                    id: collectionArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.playMediaItem(mediaItem, root.selectedMediaCard)
+                  }
+                }
+              }
+            }
+          }
+
           Repeater {
             model: sectionModel
 
@@ -440,11 +895,11 @@ Panel {
               readonly property var sectionCards: (root.sections[index] && root.sections[index].cards) || []
               width: content.width
               spacing: Style.space(8)
-              visible: sectionBlock.kind === Discovery.CACHE_X_BROADCAST ? root.filterBroadcasts
+              visible: !root.selectedMediaCard && (sectionBlock.kind === Discovery.CACHE_X_BROADCAST ? root.filterBroadcasts
                 : sectionBlock.kind === Discovery.CACHE_STARSHIP_FILM ? root.filterFilms
                 : sectionBlock.kind === Discovery.CACHE_STARSHIP_FLIGHT_TEST ? root.filterFlightTests
                 : sectionBlock.kind === Discovery.CACHE_STARSHIP_TALK ? root.filterTalks
-                : true
+                : true)
 
               Text {
                 width: parent.width
@@ -529,24 +984,41 @@ Panel {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
-                        height: cardTitle.implicitHeight + Style.space(10)
+                        height: cardText.implicitHeight + Style.space(10)
                         color: Qt.rgba(0, 0, 0, 0.55)
                         z: 3
 
-                        Text {
-                          id: cardTitle
+                        Column {
+                          id: cardText
                           anchors.left: parent.left
                           anchors.right: parent.right
                           anchors.bottom: parent.bottom
                           anchors.margins: Style.space(6)
-                          text: cardItem.card && cardItem.card.title ? cardItem.card.title : ""
-                          textFormat: Text.PlainText
-                          color: root.barForeground
-                          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-                          font.pixelSize: Style.font.caption
-                          wrapMode: Text.WordWrap
-                          maximumLineCount: 2
-                          elide: Text.ElideRight
+                          spacing: 1
+
+                          Text {
+                            width: parent.width
+                            text: cardItem.card && cardItem.card.title ? cardItem.card.title : ""
+                            textFormat: Text.PlainText
+                            color: root.barForeground
+                            font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                            font.pixelSize: Style.font.caption
+                            font.bold: true
+                            maximumLineCount: 1
+                            elide: Text.ElideRight
+                          }
+
+                          Text {
+                            width: parent.width
+                            text: root.cardMetadata(cardItem.card)
+                            textFormat: Text.PlainText
+                            color: root.barForeground
+                            opacity: 0.72
+                            font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                            font.pixelSize: Math.max(9, Style.font.caption - 2)
+                            maximumLineCount: 1
+                            elide: Text.ElideRight
+                          }
                         }
                       }
 
@@ -574,9 +1046,13 @@ Panel {
             }
           }
 
+          PreferenceControls {
+            anchors.horizontalCenter: parent.horizontalCenter
+          }
+
           Text {
             width: parent.width
-            text: "v1.0.5"
+            text: "v1.1.0"
             color: root.barForeground
             opacity: 0.45
             font.family: root.bar ? root.bar.fontFamily : Style.font.family

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.sighmon.spacex-tv",
   "name": "SpaceX TV",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "author": "sighmon",
   "license": "MIT",
   "description": "Watch SpaceX broadcasts and Starship films from the Omarchy bar, with a next-launch countdown.",
@@ -19,13 +19,41 @@
     "allowMultiple": false,
     "defaultSection": "center",
     "defaults": {
-      "showCountdown": true
+      "showCountdown": true,
+      "showNextLaunchCountdown": true,
+      "showCardFilters": true,
+      "prefersMP4Playback": false,
+      "useLocalCache": true
     },
     "schema": [
       {
         "key": "showCountdown",
         "type": "boolean",
         "label": "Show countdown on the bar",
+        "defaultValue": true
+      },
+      {
+        "key": "showNextLaunchCountdown",
+        "type": "boolean",
+        "label": "Show next launch in panel",
+        "defaultValue": true
+      },
+      {
+        "key": "showCardFilters",
+        "type": "boolean",
+        "label": "Show card filters",
+        "defaultValue": true
+      },
+      {
+        "key": "prefersMP4Playback",
+        "type": "boolean",
+        "label": "Prefer MP4 playback",
+        "defaultValue": false
+      },
+      {
+        "key": "useLocalCache",
+        "type": "boolean",
+        "label": "Use last successful local cache",
         "defaultValue": true
       }
     ]

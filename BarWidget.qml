@@ -26,15 +26,19 @@ BarWidget {
     return fallback
   }
 
-  function persistShowCountdown(value) {
+  function persistSetting(keyName, value) {
     var entry = { id: root.moduleName }
     for (var key in root.settings) {
       if (key !== "id") entry[key] = root.settings[key]
     }
-    entry.showCountdown = value
+    entry[keyName] = value
     root.settings = entry
     if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
       root.bar.shell.updateEntryInline(root.moduleName, entry)
+  }
+
+  function persistShowCountdown(value) {
+    root.persistSetting("showCountdown", value)
   }
 
   function open() {
