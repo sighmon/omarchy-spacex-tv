@@ -157,6 +157,18 @@ function xCardFromPost(post, includes, processed, isPinned, prefersMP4) {
   var photos = mediaItems.filter(function (item) { return item.kind === "photo" })
   if (entry && entry.hasUsableContent === false && !videos.length && !photos.length && !broadcastUrl) return null
   var streamUrl = processedStreamUrl || (videos[0] && videos[0].streamUrl) || null
+  var firstVideo = videos[0]
+  // Processed X cards can cache the highest-bitrate MP4. When that URL is
+  // one of the API variants, apply the user's format preference instead of
+  // letting the cached choice bypass HLS and duplicate the MP4 fallback.
+  // Keep independently resolved broadcast URLs authoritative.
+  if (firstVideo && (processedStreamUrl === firstVideo.streamUrl
+      || processedStreamUrl === firstVideo.fallbackStreamUrl)) {
+    streamUrl = firstVideo.streamUrl
+  }
+  var fallbackStreamUrl = firstVideo
+    ? (firstVideo.streamUrl !== streamUrl ? firstVideo.streamUrl : firstVideo.fallbackStreamUrl)
+    : null
   var contentKind = photos.length && !videos.length && !broadcastUrl ? CONTENT_GALLERY
     : ((videos.length > 1 || (videos.length && photos.length)) ? CONTENT_COLLECTION : CONTENT_VIDEO)
   if (entry && entry.contentKind === CONTENT_GALLERY && photos.length) contentKind = CONTENT_GALLERY
@@ -177,7 +189,7 @@ function xCardFromPost(post, includes, processed, isPinned, prefersMP4) {
     streamUrl: streamUrl,
     sourceUrl: sourceUrl,
     thumbnailUrl: thumbnailUrl,
-    fallbackStreamUrl: videos[0] ? videos[0].fallbackStreamUrl : null,
+    fallbackStreamUrl: fallbackStreamUrl,
     contentKind: contentKind,
     mediaItems: mediaItems,
     galleryImages: photos.map(function (item) { return item.photoUrl }),

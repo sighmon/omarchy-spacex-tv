@@ -54,10 +54,10 @@ test("cardsFromCache yields X broadcasts and Starship films with titles and stre
   const processedStreams = Object.values(cache.processed_cards.entries)
     .map((entry) => entry.streamURL)
     .filter(Boolean)
-  const cardStreams = broadcasts.map((card) => card.streamUrl).filter(Boolean)
+  const cardStreams = broadcasts.flatMap((card) => [card.streamUrl, card.fallbackStreamUrl]).filter(Boolean)
   assert.ok(
     processedStreams.some((url) => cardStreams.includes(url)),
-    "X broadcast cards must use processed_cards stream URLs from the cache"
+    "X broadcast cards must retain cached streams as a primary or alternate"
   )
 
   const filmTitles = cache.starship_playlist.media.map((item) => item.title)
@@ -165,6 +165,30 @@ test("X photo and mixed-media posts become galleries and collections", () => {
   assert.deepEqual(collection.mediaItems.map((item) => item.kind), ["video", "photo"])
   assert.match(collection.streamUrl, /\.m3u8$/)
   assert.match(collection.fallbackStreamUrl, /\.mp4$/)
+})
+
+test("cached X MP4s respect format preference and retain a distinct alternate", () => {
+  const hls = "https://video.twimg.com/holy-grail/master.m3u8"
+  const mp4 = "https://video.twimg.com/holy-grail/2160p.mp4"
+  const cache = {
+    processed_cards: { entries: {
+      "post:holy-grail": { streamURL: mp4, contentKind: "video", hasUsableContent: true }
+    } },
+    timeline: {
+      data: [{ id: "holy-grail", text: "The Holy Grail of Rocketry", attachments: { media_keys: ["video"] } }],
+      includes: { media: [{ media_key: "video", type: "video", variants: [
+        { content_type: "application/x-mpegURL", url: hls },
+        { content_type: "video/mp4", bit_rate: 25128000, url: mp4 }
+      ] }] }
+    }
+  }
+  const source = "https://x.com/spacex/status/holy-grail"
+  assert.deepEqual(Play.playbackCandidates(Discovery.cardsFromCache(cache)[0]), [hls, mp4, source])
+  assert.deepEqual(Play.playbackCandidates(Discovery.cardsFromCache(cache, { prefersMP4Playback: true })[0]), [mp4, hls, source])
+
+  const resolved = "https://video.pscp.tv/resolved.m3u8"
+  cache.processed_cards.entries["post:holy-grail"].streamURL = resolved
+  assert.deepEqual(Play.playbackCandidates(Discovery.cardsFromCache(cache)[0]), [resolved, hls, source])
 })
 
 test("Starship launch tiles add upcoming and YouTube flight-test cards", () => {
