@@ -70,25 +70,11 @@ function viewImage(imageUrl, cachePath, options) {
   var url = String(imageUrl || "")
   var path = String(cachePath || "")
   var maxBytes = Number(options && options.maxBytes) || 64 * 1024 * 1024
-  if (!url || !path) return { command: "", args: [] }
+  var helper = String(options && options.helperPath || "")
+  if (!url || !path || !helper) return { command: "", args: [] }
   return {
-    command: "/bin/bash",
-    args: [
-      "-c",
-      "set -o pipefail; url=\"$1\"; path=\"$2\"; max=\"$3\"; "
-        + "mkdir -p \"${path%/*}\"; tmp=\"${path}.tmp.$$\"; trap 'rm -f \"$tmp\"' EXIT; "
-        + "if curl -fsSL --compressed --max-time 30 --max-filesize \"$max\" -- \"$url\" "
-        + "| head -c \"$((max + 1))\" > \"$tmp\" "
-        + "&& [ \"$(wc -c < \"$tmp\")\" -le \"$max\" ]; then "
-        + "mv -f \"$tmp\" \"$path\"; "
-        + "if command -v swayimg >/dev/null 2>&1; then exec swayimg -f \"$path\"; fi; "
-        + "if command -v imv >/dev/null 2>&1; then exec imv -f \"$path\"; fi; fi; "
-        + "exec xdg-open \"$url\"",
-      "spacex-tv-image",
-      url,
-      path,
-      String(maxBytes)
-    ]
+    command: "python3",
+    args: [helper, "image", path, "30", String(maxBytes), url, "0"]
   }
 }
 

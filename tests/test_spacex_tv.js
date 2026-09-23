@@ -504,14 +504,12 @@ test("archived media keeps direct streams ahead of webpage fallback", () => {
 test("gallery images open through a bounded fullscreen viewer command", () => {
   const imageUrl = "https://pbs.twimg.com/media/example.jpg?name=orig"
   const cachePath = "/tmp/space x/gallery-image"
-  const invocation = Play.viewImage(imageUrl, cachePath, { maxBytes: 1024 })
-  assert.equal(invocation.command, "/bin/bash")
+  const invocation = Play.viewImage(imageUrl, cachePath, { maxBytes: 1024, helperPath: "/plugin/cache_io.py" })
+  assert.equal(invocation.command, "python3")
   assert.ok(invocation.args.includes(imageUrl), "image URL must be a positional argument")
   assert.ok(invocation.args.includes(cachePath), "cache path must be a positional argument")
-  assert.match(invocation.args[1], /swayimg -f/)
-  assert.match(invocation.args[1], /imv -f/)
-  assert.match(invocation.args[1], /exec xdg-open/)
-  assert.match(invocation.args[1], /--max-filesize/)
+  assert.deepEqual(invocation.args, ["/plugin/cache_io.py", "image", cachePath, "30", "1024", imageUrl, "0"])
+  assert.equal(Play.viewImage(imageUrl, cachePath).command, "")
 })
 
 test("panel supports local cache fallback, manual refresh, media browsing, and alternate retries", () => {

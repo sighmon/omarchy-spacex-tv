@@ -45,6 +45,8 @@ Panel {
   readonly property string localCachePath: Quickshell.cachePath("omarchy-spacex-tv/x-cache.json")
   readonly property string galleryImagePath: Quickshell.cachePath("omarchy-spacex-tv/gallery-image")
 
+  readonly property string cacheHelperPath: decodeURIComponent(Qt.resolvedUrl("cache_io.py").toString().replace(/^file:\/\//, ""))
+
   function settingBool(key, fallback) {
     if (!root.hostWidget || typeof root.hostWidget.setting !== "function") return fallback
     var value = root.hostWidget.setting(key, fallback)
@@ -76,23 +78,8 @@ Panel {
   }
 
   function cachedJsonCommand(url, maxSeconds, maxBytes, path, allowFallback) {
-    return [
-      "/bin/bash", "-c",
-      "set -o pipefail; p=\"$1\"; mkdir -p \"${p%/*}\"; t=\"${p}.tmp.$$\"; "
-        + "trap 'rm -f \"$t\"' EXIT; "
-        + "if curl -fsSL --compressed --max-time \"$2\" --max-filesize \"$3\" "
-        + "-A 'Mozilla/5.0 Omarchy SpaceXTV/1.0' -H 'Accept: application/json' -- \"$4\" "
-        + "| head -c \"$(($3 + 1))\" > \"$t\" "
-        + "&& [ \"$(wc -c < \"$t\")\" -le \"$3\" ]; then "
-        + "head -c \"$3\" \"$t\"; mv -f \"$t\" \"$p\"; "
-        + "elif [ \"$5\" = 1 ] && [ -s \"$p\" ]; then head -c \"$3\" \"$p\"; else exit 1; fi",
-      "spacex-tv-cache",
-      path,
-      String(maxSeconds),
-      String(maxBytes),
-      url,
-      allowFallback ? "1" : "0"
-    ]
+    return ["python3", root.cacheHelperPath, "json", path,
+            String(maxSeconds), String(maxBytes), url, allowFallback ? "1" : "0"]
   }
 
   function open() {
@@ -278,7 +265,7 @@ Panel {
   }
 
   function openGalleryImage(url) {
-    var invocation = Play.viewImage(url, root.galleryImagePath)
+    var invocation = Play.viewImage(url, root.galleryImagePath, { helperPath: root.cacheHelperPath })
     if (!invocation.command) return
     function start() {
       imageViewerProc.command = Play.argv(invocation)

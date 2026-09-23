@@ -41,6 +41,8 @@ omarchy bar set com.sighmon.spacex-tv useLocalCache false --json
 
 `showCountdown` controls the bar label. The other preferences control the panel countdown, filter chips, HLS/MP4 priority, and fallback to the last successful hosted-cache response. They can also be toggled from the panel.
 
+Cache downloads require `python3` and `curl`. Cache directories must be owned by the current user, with no symlink components or group/other-writable ancestors (root-owned sticky ancestors such as `/tmp` are allowed). JSON and image caches use exclusive random staging files and descriptor-relative publication; cached JSON reads and fullscreen image viewing also avoid following cache path symlinks.
+
 Playback uses `mpv`. Install it if it is not already on the system (`xdg-open` is not used unless you change `Play.js`). Install `yt-dlp` as well to resolve X or YouTube webpage fallbacks at play time.
 
 ## Remove
@@ -76,6 +78,7 @@ journalctl --user -f | grep -i "SpaceX TV"
 
 ```sh
 node --test tests/test_spacex_tv.js
+python3 -B -m unittest discover -s tests -p 'test_cache_io.py'
 ```
 
 ## Links
