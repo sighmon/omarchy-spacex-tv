@@ -527,3 +527,14 @@ test("panel supports local cache fallback, manual refresh, media browsing, and a
     "preferences must be centered immediately above the version footer"
   )
 })
+
+test("long-lived players discard both output streams", () => {
+  const panel = fs.readFileSync(path.join(root, "Panel.qml"), "utf8")
+  for (const id of ["playerProc", "imageViewerProc"]) {
+    const block = panel.split("id: " + id + "\n")[1].split("\n  Process {")[0]
+    assert.match(block, /stdout: null/)
+    assert.match(block, /stderr: null/)
+    assert.doesNotMatch(block, /StdioCollector|\.text\b/)
+  }
+  assert.doesNotMatch(panel, /\b(?:playerErr|imageViewerErr)\b/)
+})

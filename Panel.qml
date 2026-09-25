@@ -306,13 +306,10 @@ Panel {
 
   Process {
     id: playerProc
-    stdout: StdioCollector {
-      waitForEnd: false
-    }
-    stderr: StdioCollector {
-      id: playerErr
-      waitForEnd: false
-    }
+    // Playback can run for hours. Null parsers discard output without
+    // accumulating player logs in the long-lived shell process.
+    stdout: null
+    stderr: null
     onExited: function(exitCode) {
       console.log("[SpaceX TV] mpv exited", exitCode)
       Qt.callLater(function() {
@@ -335,14 +332,11 @@ Panel {
 
   Process {
     id: imageViewerProc
-    stdout: StdioCollector { waitForEnd: false }
-    stderr: StdioCollector {
-      id: imageViewerErr
-      waitForEnd: false
-    }
+    stdout: null
+    stderr: null
     onExited: function(exitCode) {
       if (exitCode && exitCode !== 0)
-        console.log("[SpaceX TV] image viewer failed", exitCode, imageViewerErr.text)
+        console.log("[SpaceX TV] image viewer failed", exitCode)
     }
   }
 
