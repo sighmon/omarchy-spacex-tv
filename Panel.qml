@@ -18,7 +18,11 @@ Panel {
   property var sections: []
   property var nextLaunch: null
   property string statusText: "Loading SpaceX TV…"
-  property string label: "SpaceX TV"
+  // Share a wall-clock binding between the bar and panel. Date.now() alone
+  // is not reactive, and animation timers can stall when the panel is hidden.
+  readonly property string label: root.nextLaunch
+    ? (Launch.formatCountdown(Launch.remainingTime(root.nextLaunch, countdownClock.date.getTime())) || "SpaceX TV")
+    : "SpaceX TV"
   property string playingCardId: ""
   property int playGeneration: 0
   property int playerGeneration: 0
@@ -280,16 +284,6 @@ Panel {
     }
   }
 
-  function updateLaunchLabel() {
-    if (!root.nextLaunch) {
-      root.label = "SpaceX TV"
-      return
-    }
-    var remaining = Launch.remainingTime(root.nextLaunch, Date.now())
-    var countdown = Launch.formatCountdown(remaining)
-    root.label = countdown || "SpaceX TV"
-  }
-
   function applyLaunchFeeds() {
     if (tilesProc.running || timingsProc.running) return
     var tilesText = String(tilesStdout.text || "").replace(/^\s+|\s+$/g, "")
@@ -297,10 +291,8 @@ Panel {
     if (!tilesText || !timingsText) return
     try {
       root.nextLaunch = Launch.nextLaunchFromFeeds(JSON.parse(tilesText), JSON.parse(timingsText), Date.now())
-      root.updateLaunchLabel()
     } catch (e) {
       root.nextLaunch = null
-      root.updateLaunchLabel()
     }
   }
 
@@ -407,11 +399,9 @@ Panel {
     onExited: root.applyLaunchFeeds()
   }
 
-  Timer {
-    interval: 1000
-    running: true
-    repeat: true
-    onTriggered: root.updateLaunchLabel()
+  SystemClock {
+    id: countdownClock
+    precision: SystemClock.Seconds
   }
 
   Timer {
@@ -469,7 +459,7 @@ Panel {
             width: parent.width
             visible: !root.selectedMediaCard && root.showNextLaunchCountdown && root.nextLaunch != null
             text: root.nextLaunch
-              ? (Launch.formatCountdown(Launch.remainingTime(root.nextLaunch, Date.now()))
+              ? (root.label
                  + (root.nextLaunch.vehicle ? " · " + root.nextLaunch.vehicle : ""))
               : ""
             textFormat: Text.PlainText
