@@ -34,7 +34,7 @@ Panel {
 
   readonly property string cacheUrl: "https://www.sighmon.com/spacex-tv/x-cache.json"
   readonly property string tilesUrl: "https://content.spacex.com/api/spacex-website/launches-page-tiles/upcoming"
-  readonly property string timingsUrl: "https://sxcontent9668.azureedge.us/cms-assets/future_missions.json"
+  readonly property string timingsUrl: "https://content.spacex.com/cms-assets/future_missions.json"
   readonly property int cacheResponseLimit: 8 * 1024 * 1024
   readonly property int launchResponseLimit: 1024 * 1024
   readonly property var barIdentity: hostWidget || root

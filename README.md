@@ -56,7 +56,7 @@ omarchy plugin remove com.sighmon.spacex-tv
 Default discovery is `https://www.sighmon.com/spacex-tv/x-cache.json` (`processed_cards`, pinned/timeline posts, and `starship_*` playlist snapshots). Next launch comes from:
 
 - `https://content.spacex.com/api/spacex-website/launches-page-tiles/upcoming`
-- `https://sxcontent9668.azureedge.us/cms-assets/future_missions.json`
+- `https://content.spacex.com/cms-assets/future_missions.json`
 
 When present, the cache's `starship_launch_tiles` and `starship_missions` snapshots add upcoming Starship holding cards and their X or YouTube webcasts. The last successful cache response is stored under the user's XDG cache directory for offline startup.
 
