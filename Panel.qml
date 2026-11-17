@@ -1023,7 +1023,7 @@ Panel {
 
           Text {
             width: parent.width
-            text: "v1.1.0"
+            text: "v1.2.0"
             color: root.barForeground
             opacity: 0.45
             font.family: root.bar ? root.bar.fontFamily : Style.font.family

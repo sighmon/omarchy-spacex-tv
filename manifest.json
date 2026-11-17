@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.sighmon.spacex-tv",
   "name": "SpaceX TV",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "sighmon",
   "license": "MIT",
   "description": "Watch SpaceX broadcasts and Starship films from the Omarchy bar, with a next-launch countdown.",
