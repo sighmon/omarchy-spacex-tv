@@ -8,9 +8,31 @@ var CACHE_STARSHIP_TALK = "starshipTalk"
 var CONTENT_VIDEO = "video"
 var CONTENT_GALLERY = "gallery"
 var CONTENT_COLLECTION = "collection"
+// The panel uses eager Repeaters in the shared shell process. Bound the total
+// input before card construction/sorting, independently of the download limit.
+var MAX_CACHE_CARDS = 256
+
+function validateCardBudget(cache) {
+  var sources = [
+    postsFromResponse(cache.pinned),
+    postsFromResponse(cache.timeline),
+    cache.starship_playlist && cache.starship_playlist.media,
+    cache.starship_flight_tests_playlist && cache.starship_flight_tests_playlist.media,
+    cache.starship_talks_playlist && cache.starship_talks_playlist.media,
+    cache.starship_launch_tiles
+  ]
+  var total = 0
+  for (var i = 0; i < sources.length; i++) {
+    if (sources[i] == null) continue
+    if (!Array.isArray(sources[i])) throw new Error("Invalid cache card source")
+    total += sources[i].length
+    if (total > MAX_CACHE_CARDS) throw new Error("Cache exceeds card limit (" + MAX_CACHE_CARDS + ")")
+  }
+}
 
 function cardsFromCache(cache, options) {
   if (!cache || typeof cache !== "object") return []
+  validateCardBudget(cache)
 
   // HLS first: SpaceX flight-test MP4s are multi-GB progressive files that
   // stall mpv. Match the iOS default (prefersMP4Playback = false).
@@ -18,13 +40,22 @@ function cardsFromCache(cache, options) {
   var nowMs = options && options.nowMs != null ? Number(options.nowMs) : Date.now()
   var processed = (cache.processed_cards && cache.processed_cards.entries) || {}
   var seenIds = {}
+  var seenXKeys = Object.create(null)
   var cards = []
 
   function addCard(card) {
     if (!isPlayableCard(card)) return
     var dedupe = String(card.streamUrl || card.sourceUrl || card.id)
-    if (seenIds[dedupe]) return
+    var keys = xCardDuplicateKeys(card)
+    var duplicate = !!seenIds[dedupe]
+    for (var k = 0; k < keys.length; k++) {
+      if (seenXKeys[keys[k]]) duplicate = true
+    }
+    // Pinned cards arrive first, then newest timeline cards. Keep that winner,
+    // but remember aliases from discarded quotes for subsequent duplicates.
+    for (var j = 0; j < keys.length; j++) seenXKeys[keys[j]] = true
     seenIds[dedupe] = true
+    if (duplicate) return
     cards.push(card)
   }
 
@@ -62,6 +93,21 @@ function cardsFromCache(cache, options) {
   return cards
 }
 
+function xCardDuplicateKeys(card) {
+  var keys = ["post:" + card.id]
+  if (isBroadcastUrl(card.sourceUrl)) {
+    var match = String(card.sourceUrl).match(/\/i\/broadcasts\/([^/?#]+)/)
+    if (match) keys.push("broadcast:" + match[1])
+  }
+  if (card.streamUrl) keys.push("stream:" + card.streamUrl)
+  // As on iOS, generic titles and photo-only posts do not merge by title.
+  if (card.streamUrl || isBroadcastUrl(card.sourceUrl)) {
+    var title = String(card.title || "").replace(/\s+/g, " ").trim().toLowerCase()
+    if (title && title !== "spacex broadcast") keys.push("title:" + title)
+  }
+  return keys
+}
+
 function isPlayableCard(card) {
   if (!card || typeof card !== "object") return false
   var title = String(card.title || "").replace(/^\s+|\s+$/g, "")
@@ -92,7 +138,8 @@ function sectionsFromCards(cards) {
   var order = contentFilters()
   var byKind = {}
   var i
-  for (i = 0; i < (cards || []).length; i++) {
+  // Defense in depth for callers supplying cards outside cardsFromCache.
+  for (i = 0; i < Math.min((cards || []).length, MAX_CACHE_CARDS); i++) {
     var card = cards[i]
     if (!card || !card.kind) continue
     if (!byKind[card.kind]) byKind[card.kind] = []
@@ -552,6 +599,9 @@ function isFlightTestDedupeCandidate(card) {
 }
 
 function prefersFlightTestCard(candidate, current) {
+  // A pinned X post must remain at the head of Broadcasts even when an
+  // official playlist or a newer/live timeline copy describes the same test.
+  if (!!candidate.isPinned !== !!current.isPinned) return !!candidate.isPinned
   var candidateScore = flightTestCardScore(candidate)
   var currentScore = flightTestCardScore(current)
   if (candidateScore !== currentScore) return candidateScore > currentScore
@@ -637,6 +687,7 @@ function posterUrl(poster) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    MAX_CACHE_CARDS: MAX_CACHE_CARDS,
     cardsFromCache: cardsFromCache,
     isPlayableCard: isPlayableCard,
     playableUrl: playableUrl,

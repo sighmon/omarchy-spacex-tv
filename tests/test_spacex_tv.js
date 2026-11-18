@@ -12,6 +12,64 @@ function loadFixture(name) {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", name), "utf8"))
 }
 
+function compactPlaylist(count) {
+  return Array.from({ length: count }, (_, i) => ({
+    title: "Film " + i,
+    autoStreamingLink: "https://example.com/" + i + ".m3u8"
+  }))
+}
+
+test("compact hostile feeds below the byte limit are rejected before card construction", () => {
+  const cache = { starship_playlist: { media: compactPlaylist(30000) } }
+  const raw = JSON.stringify(cache)
+  assert.ok(Buffer.byteLength(raw) < 8 * 1024 * 1024)
+  assert.throws(() => Discovery.cardsFromCache(JSON.parse(raw)), /Cache exceeds card limit/)
+
+  Object.defineProperty(cache.starship_playlist.media[0], "title", {
+    get() { assert.fail("oversized feeds must not construct cards") }
+  })
+  assert.throws(() => Discovery.cardsFromCache(cache), /Cache exceeds card limit/)
+})
+
+test("card budget accepts the boundary and rejects excess from every source", () => {
+  const limit = Discovery.MAX_CACHE_CARDS
+  const media = compactPlaylist(limit)
+  const cards = Discovery.cardsFromCache({ starship_playlist: { media } })
+  assert.equal(cards.length, limit)
+  assert.equal(Discovery.sectionsFromCards(cards)[0].cards.length, limit)
+
+  const sources = [
+    entries => ({ pinned: { data: entries } }),
+    entries => ({ timeline: { data: entries } }),
+    entries => ({ starship_playlist: { media: entries } }),
+    entries => ({ starship_flight_tests_playlist: { media: entries } }),
+    entries => ({ starship_talks_playlist: { media: entries } }),
+    entries => ({ starship_launch_tiles: entries })
+  ]
+  for (const source of sources) {
+    // Invalid and duplicate entries still consume the input budget.
+    assert.throws(() => Discovery.cardsFromCache(source(Array(limit + 1).fill({}))), /Cache exceeds card limit/)
+  }
+  assert.throws(() => Discovery.cardsFromCache({
+    starship_playlist: { media: media.slice(0, limit / 2) },
+    starship_talks_playlist: { media: media.slice(limit / 2) },
+    timeline: { data: [{ id: "extra" }] }
+  }), /Cache exceeds card limit/)
+  assert.throws(() => Discovery.cardsFromCache({
+    starship_playlist: { media: { length: 1, 0: media[0] } }
+  }), /Invalid cache card source/)
+})
+
+test("section models enforce a total delegate budget across kinds", () => {
+  const kinds = Discovery.contentFilters().map(filter => filter.kind)
+  const cards = Array.from({ length: 1000 }, (_, i) => ({
+    id: String(i), title: "Card " + i, kind: kinds[i % kinds.length]
+  }))
+  const sections = Discovery.sectionsFromCards(cards)
+  assert.equal(sections.reduce((total, section) => total + section.cards.length, 0), Discovery.MAX_CACHE_CARDS)
+  assert.ok(sections.flatMap(section => section.cards).every(card => Number(card.id) < Discovery.MAX_CACHE_CARDS))
+})
+
 test("remote JSON collectors have byte ceilings and feed titles render as plain text", () => {
   const panel = fs.readFileSync(path.join(root, "Panel.qml"), "utf8")
 
@@ -243,6 +301,48 @@ test("Flight Tests are ordered upcoming-first and then newest-to-oldest", () => 
     "old",
     "undated"
   ])
+})
+
+test("pinned X cards survive broadcast/title duplicates and the final flight-test merge", () => {
+  const post = (id, text, broadcast, date) => ({
+    id, text, created_at: date,
+    entities: { urls: [{ expanded_url: broadcast }] }
+  })
+  const cache = {
+    pinned: { data: [post("pinned", "Watch Starship flight test 13", "https://x.com/i/broadcasts/shared", "2026-01-01")] },
+    timeline: { data: [
+      post("quote", "Live webcast starts now", "https://twitter.com/i/broadcasts/shared?ref=quote", "2026-01-03"),
+      post("title-copy", " WATCH  Starship FLIGHT test 13 ", "https://x.com/i/broadcasts/other", "2026-01-02"),
+      post("unrelated", "Another broadcast", "https://x.com/i/broadcasts/unrelated", "2026-01-04")
+    ] },
+    processed_cards: { entries: {
+      "post:pinned": { streamURL: "https://example.com/pinned.m3u8" },
+      "post:quote": { streamURL: "https://example.com/quote.m3u8", isLive: true }
+    } },
+    starship_flight_tests_playlist: { media: [{
+      title: "Starship flight test 13", link: "flight-13",
+      autoStreamingLink: "https://example.com/official.m3u8"
+    }] },
+    starship_launch_tiles: [{ title: "Starship flight test 13", link: "flight-13", vehicle: "Starship" }]
+  }
+  const cards = Discovery.cardsFromCache(cache)
+  assert.deepEqual(cards.map(card => card.id), ["x:pinned", "x:unrelated"])
+  assert.equal(cards[0].isPinned, true)
+  assert.equal(Discovery.sectionsFromCards(cards)[0].cards[0].id, "x:pinned")
+})
+
+test("X title matching keeps newest unpinned copies without merging generic titles", () => {
+  const post = (id, text, date) => ({
+    id, text, created_at: date,
+    entities: { urls: [{ expanded_url: "https://x.com/i/broadcasts/" + id }] }
+  })
+  const cards = Discovery.cardsFromCache({ timeline: { data: [
+    post("old", "Company update", "2026-01-01"),
+    post("new", " COMPANY   update ", "2026-01-02"),
+    post("generic-one", "SpaceX Broadcast", "2026-01-03"),
+    post("generic-two", "SpaceX Broadcast", "2026-01-04")
+  ] } })
+  assert.deepEqual(cards.map(card => card.id), ["x:generic-two", "x:generic-one", "x:new"])
 })
 
 test("Flight Tests deduplicate playlist, mission-tile, and ordinal X representations", () => {
