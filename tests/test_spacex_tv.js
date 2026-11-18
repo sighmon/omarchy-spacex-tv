@@ -44,7 +44,7 @@ test("card budget accepts the boundary and rejects excess from every source", ()
     entries => ({ starship_playlist: { media: entries } }),
     entries => ({ starship_flight_tests_playlist: { media: entries } }),
     entries => ({ starship_talks_playlist: { media: entries } }),
-    entries => ({ starship_launch_tiles: entries })
+    entries => ({ starship_launch_tiles: entries.map(() => ({ vehicle: "Starship" })) })
   ]
   for (const source of sources) {
     // Invalid and duplicate entries still consume the input budget.
@@ -68,6 +68,22 @@ test("section models enforce a total delegate budget across kinds", () => {
   const sections = Discovery.sectionsFromCards(cards)
   assert.equal(sections.reduce((total, section) => total + section.cards.length, 0), Discovery.MAX_CACHE_CARDS)
   assert.ok(sections.flatMap(section => section.cards).every(card => Number(card.id) < Discovery.MAX_CACHE_CARDS))
+})
+
+test("full launch history only charges Starship tiles to the card budget", () => {
+  const cache = {
+    starship_playlist: { media: compactPlaylist(4) },
+    starship_launch_tiles: Array.from({ length: 743 }, () => ({ vehicle: "Falcon 9" }))
+  }
+  cache.starship_launch_tiles.push({ vehicle: "Starship", title: "Starship flight test 13", link: "flight-13" })
+  assert.equal(Discovery.cardsFromCache(cache).length, 5)
+  cache.starship_launch_tiles = Array(Discovery.MAX_LAUNCH_TILES).fill(null)
+  assert.equal(Discovery.cardsFromCache(cache).length, 4)
+  cache.starship_launch_tiles.push(null)
+  assert.throws(() => Discovery.cardsFromCache(cache), /Cache exceeds launch tile limit/)
+  cache.starship_launch_tiles = [{ vehicle: "Starship" }]
+  cache.starship_playlist.media = compactPlaylist(Discovery.MAX_CACHE_CARDS)
+  assert.throws(() => Discovery.cardsFromCache(cache), /Cache exceeds card limit/)
 })
 
 test("remote JSON collectors have byte ceilings and feed titles render as plain text", () => {

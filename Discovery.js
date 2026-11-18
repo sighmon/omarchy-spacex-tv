@@ -11,6 +11,7 @@ var CONTENT_COLLECTION = "collection"
 // The panel uses eager Repeaters in the shared shell process. Bound the total
 // input before card construction/sorting, independently of the download limit.
 var MAX_CACHE_CARDS = 256
+var MAX_LAUNCH_TILES = 2048
 
 function validateCardBudget(cache) {
   var sources = [
@@ -18,14 +19,24 @@ function validateCardBudget(cache) {
     postsFromResponse(cache.timeline),
     cache.starship_playlist && cache.starship_playlist.media,
     cache.starship_flight_tests_playlist && cache.starship_flight_tests_playlist.media,
-    cache.starship_talks_playlist && cache.starship_talks_playlist.media,
-    cache.starship_launch_tiles
+    cache.starship_talks_playlist && cache.starship_talks_playlist.media
   ]
   var total = 0
   for (var i = 0; i < sources.length; i++) {
     if (sources[i] == null) continue
     if (!Array.isArray(sources[i])) throw new Error("Invalid cache card source")
     total += sources[i].length
+    if (total > MAX_CACHE_CARDS) throw new Error("Cache exceeds card limit (" + MAX_CACHE_CARDS + ")")
+  }
+  // This snapshot contains the full launch history, mostly Falcon launches.
+  // Bound scanning separately; only Starship entries can create panel cards.
+  var tiles = cache.starship_launch_tiles
+  if (tiles == null) return
+  if (!Array.isArray(tiles)) throw new Error("Invalid cache card source")
+  if (tiles.length > MAX_LAUNCH_TILES) throw new Error("Cache exceeds launch tile limit")
+  for (var j = 0; j < tiles.length; j++) {
+    if (!isStarshipTile(tiles[j])) continue
+    total++
     if (total > MAX_CACHE_CARDS) throw new Error("Cache exceeds card limit (" + MAX_CACHE_CARDS + ")")
   }
 }
@@ -480,8 +491,12 @@ function cardFromStarshipMedia(media, kind, subtitle, prefersMP4) {
   }
 }
 
+function isStarshipTile(tile) {
+  return !!tile && String(tile.vehicle || "").toLowerCase() === "starship"
+}
+
 function appendFlightTestTiles(cards, seenIds, tiles, missions, nowMs) {
-  var list = Array.isArray(tiles) ? tiles.slice() : []
+  var list = Array.isArray(tiles) ? tiles.filter(isStarshipTile) : []
   list.sort(function (a, b) {
     return (Date.parse(b.launchDate || "") || 0) - (Date.parse(a.launchDate || "") || 0)
   })
@@ -688,6 +703,7 @@ function posterUrl(poster) {
 if (typeof module !== "undefined") {
   module.exports = {
     MAX_CACHE_CARDS: MAX_CACHE_CARDS,
+    MAX_LAUNCH_TILES: MAX_LAUNCH_TILES,
     cardsFromCache: cardsFromCache,
     isPlayableCard: isPlayableCard,
     playableUrl: playableUrl,

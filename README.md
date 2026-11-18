@@ -60,7 +60,7 @@ Default discovery is `https://www.sighmon.com/spacex-tv/x-cache.json` (`processe
 
 When present, the cache's `starship_launch_tiles` and `starship_missions` snapshots add upcoming Starship holding cards and their X or YouTube webcasts. The last successful cache response is stored under the user's XDG cache directory for offline startup.
 
-In addition to the 8 MiB download limit, feeds may contain at most 256 entries combined across pinned posts, timeline posts, the three playlists, and launch tiles (including duplicates and unplayable entries). Larger feeds are rejected before card assembly, preserving any currently displayed cards. The display model is also capped at 256 cards to bound eager QML delegate creation in the shared shell process.
+In addition to the 8 MiB download limit, feeds may contain at most 256 entries combined across pinned posts, timeline posts, the three playlists, and Starship launch tiles (including duplicates and unplayable entries). The full launch-history snapshot is separately limited to 2,048 tiles; non-Starship launches do not consume the card budget. Larger feeds are rejected before card assembly, preserving any currently displayed cards. The display model is also capped at 256 cards to bound eager QML delegate creation in the shared shell process.
 
 ## Logs
 
