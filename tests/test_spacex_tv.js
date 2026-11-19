@@ -19,6 +19,62 @@ function compactPlaylist(count) {
   }))
 }
 
+function referencedMediaCache(count, keys, media) {
+  return { timeline: {
+    data: Array.from({ length: count }, (_, i) => ({
+      id: String(i), referenced_tweets: [{ type: "quoted", id: "shared" }]
+    })),
+    includes: { media, tweets: [{ id: "shared", attachments: { media_keys: keys } }] }
+  } }
+}
+
+test("shared referenced media has an aggregate expansion budget", () => {
+  const photo = { media_key: "photo", type: "photo", url: "https://example.com/photo.jpg" }
+  const keys = Array(Discovery.MAX_EXPANDED_MEDIA / 4).fill("photo")
+  const cache = referencedMediaCache(4, keys, [photo])
+  const cards = Discovery.cardsFromCache(cache)
+  assert.equal(cards.reduce((sum, card) => sum + card.mediaItems.length, 0), Discovery.MAX_EXPANDED_MEDIA)
+  cache.pinned = { data: [{ id: "extra", attachments: { media_keys: ["photo"] } }], includes: { media: [photo] } }
+  assert.ok(Buffer.byteLength(JSON.stringify(cache)) < 8 * 1024 * 1024)
+  assert.throws(() => Discovery.cardsFromCache(cache), /Cache exceeds expanded media limit/)
+})
+
+test("repeated video expansion charges aggregate variant work", () => {
+  const variants = Array.from({ length: 1024 }, () => ({ url: "https://example.com/video.mp4" }))
+  const video = { media_key: "video", type: "video", variants }
+  const cache = referencedMediaCache(1, Array(32).fill("video"), [video])
+  assert.ok(Buffer.byteLength(JSON.stringify(cache)) < 8 * 1024 * 1024)
+  assert.throws(() => Discovery.cardsFromCache(cache), /Cache exceeds media work limit/)
+})
+
+test("shared long media strings cannot amplify beyond the model size budget", () => {
+  const photo = { media_key: "photo", type: "photo", url: "https://pbs.twimg.com/" + "a".repeat(128 * 1024) }
+  const cache = referencedMediaCache(100, ["photo"], [photo])
+  assert.ok(Buffer.byteLength(JSON.stringify(cache)) < 8 * 1024 * 1024)
+  assert.throws(() => Discovery.cardsFromCache(cache), /Cache exceeds expanded media size limit/)
+})
+
+test("media lookup is indexed once per response with prototype-safe keys", () => {
+  let reads = 0
+  const photo = { type: "photo", url: "https://example.com/photo.jpg", get media_key() { reads++; return "__proto__" } }
+  const cache = referencedMediaCache(100, ["__proto__"], [photo])
+  assert.equal(Discovery.cardsFromCache(cache).length, 100)
+  assert.ok(reads <= 106, "lookup indexes must not be rebuilt for each card")
+})
+
+test("media arrays reject oversized and malformed inputs before scanning", () => {
+  const oversized = Array(Discovery.MAX_MEDIA_WORK + 1).fill(null)
+  Object.defineProperty(oversized, 0, { get() { assert.fail("must reject before scanning") } })
+  for (const field of ["media", "tweets"]) {
+    assert.throws(() => Discovery.cardsFromCache({ timeline: { includes: { [field]: oversized } } }), /media work limit/)
+    assert.throws(() => Discovery.cardsFromCache({ timeline: { includes: { [field]: { length: 1e9 } } } }), /Invalid cache media array/)
+  }
+  for (const malformed of [{ length: 1e9 }, "video"]) {
+    assert.throws(() => Discovery.cardsFromCache(referencedMediaCache(1, malformed, [])), /Invalid cache media array/)
+    assert.throws(() => Discovery.cardsFromCache(referencedMediaCache(1, ["v"], [{ media_key: "v", variants: malformed }])), /Invalid cache media array/)
+  }
+})
+
 test("compact hostile feeds below the byte limit are rejected before card construction", () => {
   const cache = { starship_playlist: { media: compactPlaylist(30000) } }
   const raw = JSON.stringify(cache)
@@ -639,7 +695,7 @@ test("panel supports local cache fallback, manual refresh, media browsing, and a
   assert.match(panel, /↻ Refresh/)
   assert.match(
     panel,
-    /PreferenceControls \{\s*anchors\.horizontalCenter: parent\.horizontalCenter\s*\}[\s\S]*?text: "v1\.1\.0"/,
+    /PreferenceControls \{\s*anchors\.horizontalCenter: parent\.horizontalCenter\s*\}[\s\S]*?text: "v1\.2\.0"/,
     "preferences must be centered immediately above the version footer"
   )
 })

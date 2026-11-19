@@ -12,6 +12,42 @@ var CONTENT_COLLECTION = "collection"
 // input before card construction/sorting, independently of the download limit.
 var MAX_CACHE_CARDS = 256
 var MAX_LAUNCH_TILES = 2048
+// Shared across pinned and timeline, including repeated references. Charge
+// array lengths before scanning or allocating derived media in the shell.
+var MAX_MEDIA_WORK = 16384
+var MAX_EXPANDED_MEDIA = 1024
+var MAX_EXPANDED_MEDIA_CHARS = 8 * 1024 * 1024
+
+function mediaArray(value, budget) {
+  if (value == null) return []
+  if (!Array.isArray(value)) throw new Error("Invalid cache media array")
+  budget.work += value.length
+  if (budget.work > MAX_MEDIA_WORK) throw new Error("Cache exceeds media work limit")
+  return value
+}
+
+function mediaContext(includes, budget) {
+  var context = { byKey: Object.create(null), sizes: Object.create(null), byId: Object.create(null), budget: budget }
+  var media = mediaArray(includes.media, budget)
+  var tweets = mediaArray(includes.tweets, budget)
+  var i
+  for (i = 0; i < media.length; i++) {
+    var item = media[i]
+    if (!item) continue
+    mediaArray(item.variants, budget)
+    if (item.media_key) {
+      context.byKey[item.media_key] = item
+      // Count payload size once so long URLs/alt text cannot be multiplied
+      // into a large model even when the expanded item count is small.
+      context.sizes[item.media_key] = JSON.stringify(item).length
+    }
+  }
+  for (i = 0; i < tweets.length; i++) {
+    var post = tweets[i]
+    if (post && post.id != null) context.byId[String(post.id)] = post
+  }
+  return context
+}
 
 function validateCardBudget(cache) {
   var sources = [
@@ -72,8 +108,9 @@ function cardsFromCache(cache, options) {
 
   var pinnedPosts = postsFromResponse(cache.pinned)
   var timelinePosts = postsFromResponse(cache.timeline)
-  var pinnedIncludes = includesFromResponse(cache.pinned)
-  var timelineIncludes = includesFromResponse(cache.timeline)
+  var mediaBudget = { work: 0, expanded: 0, characters: 0 }
+  var pinnedIncludes = mediaContext(includesFromResponse(cache.pinned), mediaBudget)
+  var timelineIncludes = mediaContext(includesFromResponse(cache.timeline), mediaBudget)
   var i
 
   for (i = 0; i < pinnedPosts.length; i++) {
@@ -267,49 +304,37 @@ function titleFromPost(post) {
   return firstLine || "SpaceX Broadcast"
 }
 
-function mediaByKey(includes) {
-  var map = {}
-  var media = (includes && includes.media) || []
-  for (var i = 0; i < media.length; i++) {
-    var item = media[i]
-    if (item && item.media_key) map[item.media_key] = item
-  }
-  return map
-}
-
-function includedPostsById(includes) {
-  var map = {}
-  var tweets = (includes && includes.tweets) || []
-  for (var i = 0; i < tweets.length; i++) {
-    var post = tweets[i]
-    if (post && post.id != null) map[String(post.id)] = post
-  }
-  return map
-}
-
 function mediaForPost(post, includes) {
-  var byKey = mediaByKey(includes)
-  var keys = ((post.attachments || {}).media_keys) || []
-  var own = []
-  var i
-  for (i = 0; i < keys.length; i++) {
-    if (byKey[keys[i]]) own.push(byKey[keys[i]])
+  function expand(source) {
+    var keys = mediaArray(((source.attachments || {}).media_keys), includes.budget)
+    var result = []
+    for (var i = 0; i < keys.length; i++) {
+      var item = includes.byKey[keys[i]]
+      if (!item) continue
+      includes.budget.expanded++
+      if (includes.budget.expanded > MAX_EXPANDED_MEDIA) {
+        throw new Error("Cache exceeds expanded media limit")
+      }
+      includes.budget.characters += includes.sizes[keys[i]]
+      if (includes.budget.characters > MAX_EXPANDED_MEDIA_CHARS) {
+        throw new Error("Cache exceeds expanded media size limit")
+      }
+      // A shared video can be expanded by many cards or duplicate keys.
+      // Charge its variants each time, before postMediaItems sorts them.
+      mediaArray(item.variants, includes.budget)
+      result.push(item)
+    }
+    return result
   }
+  var own = expand(post)
   if (own.length) return own
-
   var referenced = referencedContentPost(post, includes)
-  if (!referenced) return []
-  var refKeys = ((referenced.attachments || {}).media_keys) || []
-  var nested = []
-  for (i = 0; i < refKeys.length; i++) {
-    if (byKey[refKeys[i]]) nested.push(byKey[refKeys[i]])
-  }
-  return nested
+  return referenced ? expand(referenced) : []
 }
 
 function referencedContentPost(post, includes) {
-  var refs = (post && post.referenced_tweets) || []
-  var byId = includedPostsById(includes)
+  var refs = mediaArray(post && post.referenced_tweets, includes.budget)
+  var byId = includes.byId
   for (var i = 0; i < refs.length; i++) {
     var type = refs[i] && refs[i].type
     if (type === "quoted" || type === "retweeted") {
@@ -704,6 +729,9 @@ if (typeof module !== "undefined") {
   module.exports = {
     MAX_CACHE_CARDS: MAX_CACHE_CARDS,
     MAX_LAUNCH_TILES: MAX_LAUNCH_TILES,
+    MAX_MEDIA_WORK: MAX_MEDIA_WORK,
+    MAX_EXPANDED_MEDIA: MAX_EXPANDED_MEDIA,
+    MAX_EXPANDED_MEDIA_CHARS: MAX_EXPANDED_MEDIA_CHARS,
     cardsFromCache: cardsFromCache,
     isPlayableCard: isPlayableCard,
     playableUrl: playableUrl,
