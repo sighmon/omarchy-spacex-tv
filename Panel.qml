@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Discovery.js" as Discovery
 import "Launch.js" as Launch
@@ -12,8 +13,13 @@ Panel {
   moduleName: "com.sighmon.spacex-tv"
   manageIpc: false
 
-  // The panel stays dark even when a light wallpaper gives the bar dark text.
-  readonly property color panelForeground: "white"
+  // Use the lighter of the bar's two theme colours, independent of wallpaper.
+  readonly property color panelForeground: {
+    var text = Commons.Color.bar.text
+    var contrast = Commons.Color.background
+    function brightness(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
+    return brightness(text) >= brightness(contrast) ? text : contrast
+  }
 
   property var anchorItem: null
   property var hostWidget: null
