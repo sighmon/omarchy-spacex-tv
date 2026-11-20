@@ -12,6 +12,9 @@ Panel {
   moduleName: "com.sighmon.spacex-tv"
   manageIpc: false
 
+  // The panel stays dark even when a light wallpaper gives the bar dark text.
+  readonly property color panelForeground: "white"
+
   property var anchorItem: null
   property var hostWidget: null
   property var cards: []
@@ -448,7 +451,7 @@ Panel {
               ? root.selectedMediaCard.title
               : (root.nextLaunch && root.showNextLaunchCountdown ? root.nextLaunch.title : "SpaceX TV")
             textFormat: Text.PlainText
-            color: root.barForeground
+            color: root.panelForeground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.subtitle
             font.bold: true
@@ -463,7 +466,7 @@ Panel {
                  + (root.nextLaunch.vehicle ? " · " + root.nextLaunch.vehicle : ""))
               : ""
             textFormat: Text.PlainText
-            color: root.barForeground
+            color: root.panelForeground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.body
             wrapMode: Text.WordWrap
@@ -477,12 +480,12 @@ Panel {
               implicitWidth: refreshLabel.implicitWidth + Style.space(18)
               implicitHeight: refreshLabel.implicitHeight + Style.space(10)
               radius: height / 2
-              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, refreshArea.containsMouse ? 0.25 : 0.10)
+              color: Qt.rgba(root.panelForeground.r, root.panelForeground.g, root.panelForeground.b, refreshArea.containsMouse ? 0.25 : 0.10)
               Text {
                 id: refreshLabel
                 anchors.centerIn: parent
                 text: cacheProc.running ? "Refreshing…" : "↻ Refresh"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
                 font.bold: true
@@ -501,12 +504,12 @@ Panel {
               implicitWidth: formatLabel.implicitWidth + Style.space(18)
               implicitHeight: formatLabel.implicitHeight + Style.space(10)
               radius: height / 2
-              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, formatArea.containsMouse ? 0.25 : 0.10)
+              color: Qt.rgba(root.panelForeground.r, root.panelForeground.g, root.panelForeground.b, formatArea.containsMouse ? 0.25 : 0.10)
               Text {
                 id: formatLabel
                 anchors.centerIn: parent
                 text: root.prefersMP4Playback ? "MP4 preferred" : "HLS preferred"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
               }
@@ -526,13 +529,13 @@ Panel {
               implicitWidth: countdownSettingLabel.implicitWidth + Style.space(18)
               implicitHeight: countdownSettingLabel.implicitHeight + Style.space(10)
               radius: height / 2
-              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, countdownSettingArea.containsMouse ? 0.25 : 0.10)
+              color: Qt.rgba(root.panelForeground.r, root.panelForeground.g, root.panelForeground.b, countdownSettingArea.containsMouse ? 0.25 : 0.10)
               opacity: root.showNextLaunchCountdown ? 1 : 0.62
               Text {
                 id: countdownSettingLabel
                 anchors.centerIn: parent
                 text: root.showNextLaunchCountdown ? "Countdown on" : "Countdown off"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
               }
@@ -549,13 +552,13 @@ Panel {
               implicitWidth: filtersSettingLabel.implicitWidth + Style.space(18)
               implicitHeight: filtersSettingLabel.implicitHeight + Style.space(10)
               radius: height / 2
-              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, filtersSettingArea.containsMouse ? 0.25 : 0.10)
+              color: Qt.rgba(root.panelForeground.r, root.panelForeground.g, root.panelForeground.b, filtersSettingArea.containsMouse ? 0.25 : 0.10)
               opacity: root.showCardFilters ? 1 : 0.62
               Text {
                 id: filtersSettingLabel
                 anchors.centerIn: parent
                 text: root.showCardFilters ? "Filters on" : "Filters off"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
               }
@@ -572,13 +575,13 @@ Panel {
               implicitWidth: cacheSettingLabel.implicitWidth + Style.space(18)
               implicitHeight: cacheSettingLabel.implicitHeight + Style.space(10)
               radius: height / 2
-              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, cacheSettingArea.containsMouse ? 0.25 : 0.10)
+              color: Qt.rgba(root.panelForeground.r, root.panelForeground.g, root.panelForeground.b, cacheSettingArea.containsMouse ? 0.25 : 0.10)
               opacity: root.useLocalCache ? 1 : 0.62
               Text {
                 id: cacheSettingLabel
                 anchors.centerIn: parent
                 text: root.useLocalCache ? "Offline cache on" : "Offline cache off"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
               }
@@ -613,20 +616,20 @@ Panel {
                 implicitHeight: chipLabel.implicitHeight + Style.space(10)
                 radius: height / 2
                 color: Qt.rgba(
-                  root.barForeground.r,
-                  root.barForeground.g,
-                  root.barForeground.b,
+                  root.panelForeground.r,
+                  root.panelForeground.g,
+                  root.panelForeground.b,
                   selected ? 0.28 : 0.10
                 )
                 border.width: chipArea.containsMouse ? 1 : 0
-                border.color: root.barForeground
+                border.color: root.panelForeground
                 opacity: selected ? 1 : 0.75
 
                 Text {
                   id: chipLabel
                   anchors.centerIn: parent
                   text: title
-                  color: root.barForeground
+                  color: root.panelForeground
                   font.family: root.bar ? root.bar.fontFamily : Style.font.family
                   font.pixelSize: Style.font.caption
                   font.bold: true
@@ -648,7 +651,7 @@ Panel {
             visible: !root.selectedMediaCard && root.statusText !== "" && !root.loadingCache
             text: root.statusText
             textFormat: Text.PlainText
-            color: root.barForeground
+            color: root.panelForeground
             opacity: 0.8
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.bodySmall
@@ -668,7 +671,7 @@ Panel {
                 id: cacheSpinner
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "󰦖"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.title
 
@@ -684,7 +687,7 @@ Panel {
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Loading SpaceX TV…"
-                color: root.barForeground
+                color: root.panelForeground
                 opacity: 0.8
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.bodySmall
@@ -701,12 +704,12 @@ Panel {
               implicitWidth: backLabel.implicitWidth + Style.space(18)
               implicitHeight: backLabel.implicitHeight + Style.space(10)
               radius: height / 2
-              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, backArea.containsMouse ? 0.25 : 0.10)
+              color: Qt.rgba(root.panelForeground.r, root.panelForeground.g, root.panelForeground.b, backArea.containsMouse ? 0.25 : 0.10)
               Text {
                 id: backLabel
                 anchors.centerIn: parent
                 text: "← Back"
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
                 font.bold: true
@@ -771,7 +774,7 @@ Panel {
 
                 Text {
                   text: "‹"
-                  color: root.barForeground
+                  color: root.panelForeground
                   opacity: root.selectedImageIndex > 0 ? 1 : 0.3
                   font.pixelSize: Style.font.title
                   MouseArea {
@@ -784,14 +787,14 @@ Panel {
                 Text {
                   text: root.selectedMediaCard && root.selectedMediaCard.galleryImages
                     ? (root.selectedImageIndex + 1) + " of " + root.selectedMediaCard.galleryImages.length : ""
-                  color: root.barForeground
+                  color: root.panelForeground
                   font.family: root.bar ? root.bar.fontFamily : Style.font.family
                   font.pixelSize: Style.font.bodySmall
                   anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
                   text: "›"
-                  color: root.barForeground
+                  color: root.panelForeground
                   opacity: root.selectedMediaCard && root.selectedMediaCard.galleryImages
                     && root.selectedImageIndex + 1 < root.selectedMediaCard.galleryImages.length ? 1 : 0.3
                   font.pixelSize: Style.font.title
@@ -875,7 +878,7 @@ Panel {
               Text {
                 width: parent.width
                 text: sectionBlock.title.toUpperCase()
-                color: root.barForeground
+                color: root.panelForeground
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.body
                 font.bold: true
@@ -928,7 +931,7 @@ Panel {
                           id: cardSpinner
                           anchors.horizontalCenter: parent.horizontalCenter
                           text: "󰦖"
-                          color: root.barForeground
+                          color: root.panelForeground
                           font.family: root.bar ? root.bar.fontFamily : Style.font.family
                           font.pixelSize: Style.font.title
 
@@ -945,7 +948,7 @@ Panel {
                           anchors.horizontalCenter: parent.horizontalCenter
                           visible: cardItem.starting
                           text: "Starting"
-                          color: root.barForeground
+                          color: root.panelForeground
                           font.family: root.bar ? root.bar.fontFamily : Style.font.family
                           font.pixelSize: Style.font.caption
                         }
@@ -971,7 +974,7 @@ Panel {
                             width: parent.width
                             text: cardItem.card && cardItem.card.title ? cardItem.card.title : ""
                             textFormat: Text.PlainText
-                            color: root.barForeground
+                            color: root.panelForeground
                             font.family: root.bar ? root.bar.fontFamily : Style.font.family
                             font.pixelSize: Style.font.caption
                             font.bold: true
@@ -983,7 +986,7 @@ Panel {
                             width: parent.width
                             text: root.cardMetadata(cardItem.card)
                             textFormat: Text.PlainText
-                            color: root.barForeground
+                            color: root.panelForeground
                             opacity: 0.72
                             font.family: root.bar ? root.bar.fontFamily : Style.font.family
                             font.pixelSize: Math.max(9, Style.font.caption - 2)
@@ -1008,7 +1011,7 @@ Panel {
                       radius: Style.cornerRadius
                       color: "transparent"
                       border.width: cardItem.hovered || cardItem.starting ? 2 : 0
-                      border.color: root.barForeground
+                      border.color: root.panelForeground
                       z: 5
                     }
                   }
@@ -1024,7 +1027,7 @@ Panel {
           Text {
             width: parent.width
             text: "v1.2.0"
-            color: root.barForeground
+            color: root.panelForeground
             opacity: 0.45
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.caption
